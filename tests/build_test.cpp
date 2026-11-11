@@ -61,6 +61,15 @@ TEST_CASE("socket connect tries later localhost address candidates") {
     shutdown(server);
 }
 
+TEST_CASE("socket listen tries later localhost address candidates") {
+    using namespace colt::detail::platform;
+    initialize_sockets();
+    auto ipv6_listener = listen_tcp("::1", 0, 1);
+
+    auto ipv4_listener = listen_tcp("localhost", local_port(ipv6_listener), 1);
+    REQUIRE(local_port(ipv4_listener) == local_port(ipv6_listener));
+}
+
 TEST_CASE("socket resolver errors use a resolver error category") {
     using namespace colt::detail::platform;
     initialize_sockets();

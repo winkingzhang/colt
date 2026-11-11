@@ -191,13 +191,20 @@ Socket listen_tcp(std::string_view address, std::uint16_t port, int backlog) {
     initialize_sockets();
     if (backlog < 0) throw std::invalid_argument("backlog must not be negative");
     auto addresses = resolve(address, port, 0);
+    std::error_code last_error;
 
     for (auto* entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
         const auto handle = ::socket(entry->ai_family, entry->ai_socktype, entry->ai_protocol);
 #ifdef _WIN32
-        if (handle == INVALID_SOCKET) continue;
+        if (handle == INVALID_SOCKET) {
+            last_error = last_socket_error();
+            continue;
+        }
 #else
-        if (handle < 0) continue;
+        if (handle < 0) {
+            last_error = last_socket_error();
+            continue;
+        }
 #endif
         try {
             configure_socket(handle);
@@ -211,12 +218,16 @@ Socket listen_tcp(std::string_view address, std::uint16_t port, int backlog) {
             }
             if (::listen(handle, backlog) < 0) throw_socket_error("listen");
             return Socket(static_cast<std::uintptr_t>(handle));
+        } catch (const std::system_error& error) {
+            last_error = error.code();
+            close_native(handle);
         } catch (...) {
             close_native(handle);
             throw;
         }
     }
-    throw_socket_error("socket");
+    if (last_error) throw std::system_error(last_error, "listen");
+    throw std::system_error(std::make_error_code(std::errc::address_not_available), "listen");
 }
 
 Socket accept(Socket& listener) {
