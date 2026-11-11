@@ -209,3 +209,46 @@ Command sequence: `cmake --build build && ctest --test-dir build -R 'http_serial
 `git diff --cached --check` also completed with exit 0 and no output after staging the intended Task 2 files and this report. Existing untracked `docs/` was not staged.
 
 Implementation commit: `1626120` (`feat: add bounded HTTP parsing and serialization`). It includes the report and all Task 2 implementation/tests. `git status --short --branch` after the commit showed only the pre-existing untracked `docs/` directory, which was not staged. `git diff HEAD^ HEAD --check` completed with exit 0 and no output.
+
+## Review Follow-Up: Host And Response Framing Semantics
+
+Addressed four reviewer findings with regression tests:
+
+- HTTP/1.1 requests must contain exactly one nonempty, case-insensitive `Host`; missing, duplicate, or empty values return `bad_request` with connection close.
+- Serialization rejects any caller-provided `Transfer-Encoding` with `std::invalid_argument` to avoid emitting it with a `Content-Length`.
+- Serialization rejects status values outside the valid 100-599 range with `std::invalid_argument`.
+- 1xx, 204, 205, and 304 responses omit both body bytes and `Content-Length`; status phrases were added for 100, 205, and 304.
+
+The new tests were first run against the old implementation using `cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure`. Both focused CTest entries failed as expected: parser failed because a missing Host was accepted; serializer failed for accepted Transfer-Encoding, invalid status values, and body-bearing no-content statuses.
+
+After the fixes, the final verification command was `cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+
+```text
+[ 28%] Built target colt
+[ 42%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_parser_test.cpp.o
+[ 57%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_serializer_test.cpp.o
+[ 71%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/2 Test #2: http_parser ......................   Passed    0.41 sec
+    Start 3: http_serializer
+2/2 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.42 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/3 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/3 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/3 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.04 sec
+```
+
+`git diff --check` exited 0 with no output. Commit hash will be recorded here after committing the review fixes.

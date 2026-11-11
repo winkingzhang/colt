@@ -102,9 +102,12 @@ inline std::string_view reason_phrase(int status) {
     case 200: return "OK";
     case 201: return "Created";
     case 202: return "Accepted";
+    case 100: return "Continue";
     case 204: return "No Content";
+    case 205: return "Reset Content";
     case 301: return "Moved Permanently";
     case 302: return "Found";
+    case 304: return "Not Modified";
     case 400: return "Bad Request";
     case 404: return "Not Found";
     case 405: return "Method Not Allowed";
@@ -178,6 +181,7 @@ inline ParseResult parse_request(std::string_view input, const HttpLimits& limit
     const std::size_t headers_start = line_end + 2;
     std::size_t position = headers_start;
     std::size_t content_length_count = 0;
+    std::size_t host_count = 0;
     std::size_t content_length = 0;
     bool has_transfer_encoding = false;
     bool close_connection = false;
@@ -223,6 +227,13 @@ inline ParseResult parse_request(std::string_view input, const HttpLimits& limit
             if ((ch < 0x20 && ch != '\t') || ch == 0x7f) return error(ParseStatus::bad_request);
         }
         const std::string name(line.substr(0, colon));
+        if (name.size() == 4 && std::equal(name.begin(), name.end(), "host",
+                                            [](unsigned char a, unsigned char b) {
+                                                return ascii_lower(static_cast<char>(a)) == b;
+                                            })) {
+            ++host_count;
+            if (host_count > 1 || value.empty()) return error(ParseStatus::bad_request);
+        }
         if (name.size() == 10 && std::equal(name.begin(), name.end(), "connection",
                                              [](unsigned char a, unsigned char b) {
                                                  return ascii_lower(static_cast<char>(a)) == b;
@@ -262,6 +273,7 @@ inline ParseResult parse_request(std::string_view input, const HttpLimits& limit
         position = header_end + 2;
     }
 
+    if (host_count != 1) return error(ParseStatus::bad_request);
     if (has_transfer_encoding) return error(ParseStatus::bad_request);
     if (content_length > limits.body_bytes) return error(ParseStatus::payload_too_large);
     if (input.size() - position < content_length) return {};
@@ -271,12 +283,24 @@ inline ParseResult parse_request(std::string_view input, const HttpLimits& limit
 
 inline std::string serialize_response(const Response& response, bool keep_alive) {
     using namespace http_parser_detail;
+    if (response.status < 100 || response.status > 599) {
+        throw std::invalid_argument("invalid HTTP response status");
+    }
+    const bool body_forbidden = (response.status >= 100 && response.status < 200) ||
+                                response.status == 204 || response.status == 205 ||
+                                response.status == 304;
     for (const auto& [name, value] : response.headers) {
         if (name.empty() || !std::all_of(name.begin(), name.end(), [](unsigned char ch) {
                 return is_token_char(ch);
             }) ||
             !is_valid_field_value(value)) {
             throw std::invalid_argument("invalid response header");
+        }
+        if (name.size() == 17 && std::equal(name.begin(), name.end(), "transfer-encoding",
+                                             [](unsigned char a, unsigned char b) {
+                                                 return ascii_lower(static_cast<char>(a)) == b;
+                                             })) {
+            throw std::invalid_argument("Transfer-Encoding is not supported");
         }
     }
     std::string result = "HTTP/1.1 " + std::to_string(response.status) + " " +
@@ -292,10 +316,12 @@ inline std::string serialize_response(const Response& response, bool keep_alive)
                                              })) continue;
         result += name + ": " + value + "\r\n";
     }
-    result += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
+    if (!body_forbidden) {
+        result += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
+    }
     result += keep_alive ? "Connection: keep-alive\r\n" : "Connection: close\r\n";
     result += "\r\n";
-    result += response.body;
+    if (!body_forbidden) result += response.body;
     return result;
 }
 

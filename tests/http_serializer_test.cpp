@@ -67,3 +67,49 @@ TEST_CASE("serializer rejects response header values containing controls") {
         REQUIRE(rejected);
     }
 }
+
+TEST_CASE("serializer rejects transfer encoding to avoid conflicting framing") {
+    colt::Response response;
+    response.headers.set("Transfer-Encoding", "chunked");
+
+    bool rejected = false;
+    try {
+        (void)colt::detail::serialize_response(response, true);
+    } catch (const std::invalid_argument&) {
+        rejected = true;
+    }
+    REQUIRE(rejected);
+}
+
+TEST_CASE("serializer rejects status values outside the three-digit HTTP range") {
+    for (const int status : {99, 600, 1000, -200}) {
+        colt::Response response;
+        response.status = status;
+
+        bool rejected = false;
+        try {
+            (void)colt::detail::serialize_response(response, true);
+        } catch (const std::invalid_argument&) {
+            rejected = true;
+        }
+        REQUIRE(rejected);
+    }
+}
+
+TEST_CASE("serializer suppresses bodies and content length for 204 responses") {
+    const auto response = colt::Response::text("must not be sent", 204);
+    const auto serialized = colt::detail::serialize_response(response, true);
+
+    REQUIRE(serialized == "HTTP/1.1 204 No Content\r\nConnection: keep-alive\r\n\r\n");
+    REQUIRE(serialized.find("must not be sent") == std::string::npos);
+    REQUIRE(serialized.find("Content-Length") == std::string::npos);
+}
+
+TEST_CASE("serializer suppresses bodies for informational and 304 responses") {
+    for (const int status : {100, 304, 205}) {
+        const auto response = colt::Response::text("must not be sent", status);
+        const auto serialized = colt::detail::serialize_response(response, true);
+        REQUIRE(serialized.find("must not be sent") == std::string::npos);
+        REQUIRE(serialized.find("Content-Length: ") == std::string::npos);
+    }
+}

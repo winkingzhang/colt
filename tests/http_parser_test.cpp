@@ -31,11 +31,11 @@ TEST_CASE("parser extracts a complete GET request and query parameters") {
 
 TEST_CASE("parser accepts a content-length POST body") {
     const auto result = parse_request(
-        "POST /submit HTTP/1.1\r\nContent-Length: 4\r\n\r\ndata");
+        "POST /submit HTTP/1.1\r\nHost: x\r\nContent-Length: 4\r\n\r\ndata");
 
     REQUIRE(result.status == ParseStatus::complete);
     REQUIRE(result.request.body == "data");
-    REQUIRE(result.bytes_consumed == 48);
+    REQUIRE(result.bytes_consumed == 57);
 }
 
 TEST_CASE("parser reports incomplete request lines headers and bodies") {
@@ -44,13 +44,28 @@ TEST_CASE("parser reports incomplete request lines headers and bodies") {
             ParseStatus::need_more);
     REQUIRE(parse_request("GET / HTTP/1.1\r\nHost: x\r\n\r\n").status ==
             ParseStatus::complete);
-    REQUIRE(parse_request("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nx")
+    REQUIRE(parse_request("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\n\r\nx")
                 .status == ParseStatus::need_more);
 }
 
+TEST_CASE("parser rejects requests without exactly one nonempty Host header") {
+    const auto missing = parse_request("GET / HTTP/1.1\r\n\r\n");
+    REQUIRE(missing.status == ParseStatus::bad_request);
+    REQUIRE(missing.close_connection);
+
+    const auto duplicate = parse_request(
+        "GET / HTTP/1.1\r\nHost: first\r\nhOST: second\r\n\r\n");
+    REQUIRE(duplicate.status == ParseStatus::bad_request);
+    REQUIRE(duplicate.close_connection);
+
+    const auto empty = parse_request("GET / HTTP/1.1\r\nHost: \t \r\n\r\n");
+    REQUIRE(empty.status == ParseStatus::bad_request);
+    REQUIRE(empty.close_connection);
+}
+
 TEST_CASE("parser accepts the exact configured request line header and body limits") {
-    colt::HttpLimits limits{14, 8, 4};
-    const auto request = parse_request("GET / HTTP/1.1\r\nX: y\r\n\r\n", limits);
+    colt::HttpLimits limits{14, 11, 4};
+    const auto request = parse_request("GET / HTTP/1.1\r\nHost: x\r\n\r\n", limits);
     REQUIRE(request.status == ParseStatus::complete);
     REQUIRE(parse_request("GET / HTTP/1.1\r", limits).status == ParseStatus::need_more);
 
@@ -59,13 +74,13 @@ TEST_CASE("parser accepts the exact configured request line header and body limi
             ParseStatus::payload_too_large);
 
     limits = {8192, 7, 4};
-    REQUIRE(parse_request("GET / HTTP/1.1\r\nX: y\r\n\r\n", limits).status ==
+    REQUIRE(parse_request("GET / HTTP/1.1\r\nHost: x\r\n\r\n", limits).status ==
             ParseStatus::payload_too_large);
-    REQUIRE(parse_request("GET / HTTP/1.1\r\nX: yyyyy", limits).status ==
+    REQUIRE(parse_request("GET / HTTP/1.1\r\nHost: xxxxx", limits).status ==
             ParseStatus::payload_too_large);
 
     limits = {8192, 32768, 4};
-    REQUIRE(parse_request("POST / HTTP/1.1\r\nContent-Length: 4\r\n\r\ndata", limits)
+    REQUIRE(parse_request("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 4\r\n\r\ndata", limits)
                 .status == ParseStatus::complete);
 }
 
@@ -73,54 +88,54 @@ TEST_CASE("parser marks over-limit declared bodies for close") {
     colt::HttpLimits limits;
     limits.body_bytes = 3;
     const auto result = parse_request(
-        "POST / HTTP/1.1\r\nContent-Length: 4\r\n\r\n", limits);
+        "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 4\r\n\r\n", limits);
 
     REQUIRE(result.status == ParseStatus::payload_too_large);
     REQUIRE(result.close_connection);
 
     const auto overflow = parse_request(
-        "POST / HTTP/1.1\r\nContent-Length: 999999999999999999999999999999\r\n\r\n");
+        "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 999999999999999999999999999999\r\n\r\n");
     REQUIRE(overflow.status == ParseStatus::payload_too_large);
     REQUIRE(overflow.close_connection);
 }
 
 TEST_CASE("parser rejects malformed request lines") {
-    REQUIRE(parse_request("GET / HTTP/1.0\r\n\r\n").status ==
+    REQUIRE(parse_request("GET / HTTP/1.0\r\nHost: x\r\n\r\n").status ==
             ParseStatus::bad_request);
     REQUIRE(parse_request("GET / HTTP/1.1\r\r").status == ParseStatus::bad_request);
-    REQUIRE(parse_request("GET  HTTP/1.1\r\n\r\n").status ==
+    REQUIRE(parse_request("GET  HTTP/1.1\r\nHost: x\r\n\r\n").status ==
             ParseStatus::bad_request);
-    REQUIRE(parse_request("GET / HTTP/1.1 extra\r\n\r\n").status ==
+    REQUIRE(parse_request("GET / HTTP/1.1 extra\r\nHost: x\r\n\r\n").status ==
             ParseStatus::bad_request);
 }
 
 TEST_CASE("parser rejects duplicate and conflicting content lengths and closes") {
     const auto same = parse_request(
-        "POST / HTTP/1.1\r\nContent-Length: 0\r\ncontent-length: 0\r\n\r\n");
+        "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\ncontent-length: 0\r\n\r\n");
     REQUIRE(same.status == ParseStatus::bad_request);
     REQUIRE(same.close_connection);
 
     const auto different = parse_request(
-        "POST / HTTP/1.1\r\nContent-Length: 0\r\nContent-Length: 1\r\n\r\n");
+        "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\nContent-Length: 1\r\n\r\n");
     REQUIRE(different.status == ParseStatus::bad_request);
     REQUIRE(different.close_connection);
 }
 
 TEST_CASE("parser rejects transfer encoding including combined framing") {
     const auto transfer = parse_request(
-        "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n");
+        "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n");
     REQUIRE(transfer.status == ParseStatus::bad_request);
     REQUIRE(transfer.close_connection);
 
     const auto combined = parse_request(
-        "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\nContent-Length: 0\r\n\r\n");
+        "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nContent-Length: 0\r\n\r\n");
     REQUIRE(combined.status == ParseStatus::bad_request);
     REQUIRE(combined.close_connection);
 }
 
 TEST_CASE("parser rejects invalid percent escapes in query parameters") {
     for (const std::string_view target : {"/?x=%", "/?x=%0", "/?x=%GG", "/bad%2"}) {
-        const std::string request = "GET " + std::string(target) + " HTTP/1.1\r\n\r\n";
+        const std::string request = "GET " + std::string(target) + " HTTP/1.1\r\nHost: x\r\n\r\n";
         const auto result = parse_request(request);
         REQUIRE(result.status == ParseStatus::bad_request);
         REQUIRE(result.close_connection);
@@ -128,7 +143,7 @@ TEST_CASE("parser rejects invalid percent escapes in query parameters") {
 }
 
 TEST_CASE("parser splits query pairs before decoding and preserves encoded path delimiters") {
-    const auto result = parse_request("GET /a%2Fb?token=a=b&empty= HTTP/1.1\r\n\r\n");
+    const auto result = parse_request("GET /a%2Fb?token=a=b&empty= HTTP/1.1\r\nHost: x\r\n\r\n");
 
     REQUIRE(result.status == ParseStatus::complete);
     REQUIRE(result.request.path == "/a%2Fb");
@@ -138,19 +153,20 @@ TEST_CASE("parser splits query pairs before decoding and preserves encoded path 
 
 TEST_CASE("parser honors an HTTP/1.1 connection close request") {
     const auto result = parse_request(
-        "GET / HTTP/1.1\r\nConnection: keep-alive, Close\r\n\r\n");
+        "GET / HTTP/1.1\r\nHost: x\r\nConnection: keep-alive, Close\r\n\r\n");
 
     REQUIRE(result.status == ParseStatus::complete);
     REQUIRE(result.close_connection);
 }
 
 TEST_CASE("parser preserves pipelined bytes after one request") {
-    const std::string input = "GET / HTTP/1.1\r\n\r\nGET /next HTTP/1.1\r\n\r\n";
+    const std::string input =
+        "GET / HTTP/1.1\r\nHost: x\r\n\r\nGET /next HTTP/1.1\r\nHost: x\r\n\r\n";
     const auto result = parse_request(input);
 
     REQUIRE(result.status == ParseStatus::complete);
-    REQUIRE(result.bytes_consumed == 18);
-    REQUIRE(input.substr(result.bytes_consumed) == "GET /next HTTP/1.1\r\n\r\n");
+    REQUIRE(result.bytes_consumed == 27);
+    REQUIRE(input.substr(result.bytes_consumed) == "GET /next HTTP/1.1\r\nHost: x\r\n\r\n");
 }
 
 TEST_CASE("headers lookup is case insensitive while preserving values") {
