@@ -593,4 +593,4 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) = 0.04 sec
 ```
 
-Result: exit 0; trailing `git diff --check` emitted no output. Commit hash: to be recorded after commit.
+Result: exit 0; trailing `git diff --check` emitted no output. Implementation commit: `57651e7` (`fix: frame bodyless 205 responses`). Only `include/colt/detail/http_parser.hpp`, `tests/http_serializer_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
