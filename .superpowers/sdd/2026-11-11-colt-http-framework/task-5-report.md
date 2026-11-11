@@ -474,4 +474,4 @@ Total Test time (real) =   0.03 sec
 Both `git diff --check` invocations emitted no output and exited 0.
 
 Source commit: `32aa0e5` (`fix: suppress Windows min max macros`).
-Report commit: to be recorded after commit.
+Report commit: `f8e0dba` (`docs: record Windows macro review`).
