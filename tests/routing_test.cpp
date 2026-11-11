@@ -116,3 +116,17 @@ TEST_CASE("application forwards request service registration to dispatch context
     request.path = "/";
     REQUIRE(app.dispatch(request).body == "service:singleton");
 }
+
+TEST_CASE("routing preserves mutable handler state across dispatches") {
+    colt::Application app;
+    app.get("/count", [count = 0](const colt::Request&,
+                                    colt::RequestContext&) mutable {
+        return colt::Response::text(std::to_string(++count));
+    });
+
+    colt::Request request;
+    request.method = "GET";
+    request.path = "/count";
+    REQUIRE(app.dispatch(request).body == "1");
+    REQUIRE(app.dispatch(request).body == "2");
+}

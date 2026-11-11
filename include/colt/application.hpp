@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -60,8 +61,9 @@ public:
                 return Response::text("Bad Request", 400);
             }
 
-            Handler matched_handler;
-            for (const auto& candidate : routes_) {
+            const Handler* matched_handler = nullptr;
+            for (const auto& route : routes_) {
+                const auto& candidate = *route;
                 if (candidate.method != request.method) continue;
 
                 std::vector<std::string> pattern_segments;
@@ -84,12 +86,12 @@ public:
                 if (!matches) continue;
 
                 request.path_params = std::move(params);
-                matched_handler = candidate.handler;
+                matched_handler = &candidate.handler;
                 break;
             }
 
             auto route = [&]() {
-                if (matched_handler) return matched_handler(request, context);
+                if (matched_handler) return (*matched_handler)(request, context);
                 return Response::text("Not Found", 404);
             };
 
@@ -126,7 +128,8 @@ private:
     };
 
     void add_route(std::string method, std::string pattern, Handler handler) {
-        routes_.push_back({std::move(method), std::move(pattern), std::move(handler)});
+        routes_.push_back(std::make_unique<Route>(
+            Route{std::move(method), std::move(pattern), std::move(handler)}));
     }
 
     static bool split_path(std::string_view path, std::vector<std::string>& segments) {
@@ -182,7 +185,7 @@ private:
     }
 
     ServiceRegistry registry_;
-    std::vector<Route> routes_;
+    std::vector<std::unique_ptr<Route>> routes_;
     std::vector<Middleware> middleware_;
 };
 
