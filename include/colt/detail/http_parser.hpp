@@ -145,7 +145,14 @@ inline bool is_ip_literal(std::string_view literal) {
         const auto tail = literal.substr(dot + 1);
         if (tail.empty()) return false;
         for (const unsigned char ch : tail) {
-            if (!is_token_char(ch) && ch != ':') return false;
+            const bool unreserved =
+                (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+                (ch >= '0' && ch <= '9') || ch == '-' || ch == '.' || ch == '_' ||
+                ch == '~';
+            constexpr std::string_view sub_delimiters = "!$&'()*+,;=";
+            if (!unreserved && sub_delimiters.find(static_cast<char>(ch)) ==
+                                   std::string_view::npos &&
+                ch != ':') return false;
         }
         return true;
     }
