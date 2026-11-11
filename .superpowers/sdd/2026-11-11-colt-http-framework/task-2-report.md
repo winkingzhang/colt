@@ -501,4 +501,4 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.03 sec
 ```
 
-Result: exit 0; the trailing `git diff --check` emitted no output. Commit hash: to be recorded after commit.
+Result: exit 0; the trailing `git diff --check` emitted no output. Commit: `d0b06a5` (`test: cover aggregate header limit terminator`). Only `tests/http_parser_test.cpp` and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output. The finding is not reproducible against the current parser: the terminator CRLF was already included in the existing calculation.
