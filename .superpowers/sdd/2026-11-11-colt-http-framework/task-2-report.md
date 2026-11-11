@@ -208,4 +208,4 @@ Command sequence: `cmake --build build && ctest --test-dir build -R 'http_serial
 
 `git diff --cached --check` also completed with exit 0 and no output after staging the intended Task 2 files and this report. Existing untracked `docs/` was not staged.
 
-Implementation commit hash: recorded in the subsequent report-only commit.
+Implementation commit: `1626120` (`feat: add bounded HTTP parsing and serialization`). It includes the report and all Task 2 implementation/tests. `git status --short --branch` after the commit showed only the pre-existing untracked `docs/` directory, which was not staged. `git diff HEAD^ HEAD --check` completed with exit 0 and no output.
