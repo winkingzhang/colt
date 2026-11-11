@@ -252,3 +252,52 @@ Total Test time (real) =   0.13 sec
 `git diff --check` emitted no output and exited 0.
 
 Code and test commit: `7dbdb96` (`fix: retry listener address candidates`).
+
+## Final Review Follow-Up: Remove Dual-Stack Test Assumptions
+
+Removed the `::1`/`localhost` listener fallback test and the `localhost` connect fallback test. They depended on IPv6 availability and resolver candidate ordering, so they could fail on valid IPv4-only configurations and did not deterministically prove fallback. The implementation's candidate retry remains intact and code-reviewed, but multi-candidate fallback is not deterministically integration-tested; no resolver injection seam was added solely for this test.
+
+The focused tests now use numeric IPv4 addresses for the ephemeral loopback round-trip, a single-address listener bind failure (`192.0.2.1`), a single-address connect failure (`127.0.0.1:0`), and the resolver error-category assertion. This removes the socket suite's IPv6 and localhost-order dependency.
+
+### Final Verification
+
+Ran:
+
+`cmake --build build && ctest --test-dir build -R socket --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`
+
+Exact test output:
+
+```text
+[ 20%] Built target colt
+[ 30%] Building CXX object CMakeFiles/colt_tests.dir/tests/build_test.cpp.o
+[ 40%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: socket
+1/1 Test #2: socket ...........................   Passed    0.50 sec
+
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.50 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/7 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: socket
+2/7 Test #2: socket ...........................   Passed    0.02 sec
+    Start 3: http_parser
+3/7 Test #3: http_parser ......................   Passed    0.01 sec
+    Start 4: http_serializer
+4/7 Test #4: http_serializer ..................   Passed    0.01 sec
+    Start 5: context
+5/7 Test #5: context ..........................   Passed    0.01 sec
+    Start 6: routing
+6/7 Test #6: routing ..........................   Passed    0.01 sec
+    Start 7: middleware
+7/7 Test #7: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.08 sec
+```
+
+`git diff --check` emitted no output and exited 0.
+
+Test-only commit: `90912cb` (`test: remove dual-stack socket assumptions`).
