@@ -128,3 +128,76 @@ Total Test time (real) =   0.25 sec
 ## Commit
 
 Implementation commit: `5df7bbb` (`feat: add cross-platform socket layer`).
+
+## Review Follow-Up: Resolver Candidate Retry And Error Category
+
+Review identified that `connect_tcp` stopped at the first failed address candidate and that `getaddrinfo` errors were assigned to `std::generic_category()`. The connection loop now closes each failed candidate, tries the next, and throws the last captured socket error only after exhausting the results. POSIX and WinSock resolver errors now use a dedicated `getaddrinfo` error category with the platform resolver message.
+
+Added two regressions:
+
+- An IPv4-only ephemeral listener connects via `localhost`, exercising the resolver's later IPv4 candidate after the preceding candidate fails where dual results are provided.
+- An invalid host verifies the thrown resolver error has the `getaddrinfo` category.
+
+### Red Phase
+
+Before the fix, ran:
+
+`cmake --build build && ctest --test-dir build -R socket --output-on-failure`
+
+The candidate-retry test failed as expected:
+
+```text
+[pass] socket loopback exchanges data on an ephemeral port
+[fail] socket connect tries later localhost address candidates: connect: Connection refused
+0% tests passed, 1 tests failed out of 1
+```
+
+After adding the resolver-category assertion but before correcting its category, the same command failed as expected:
+
+```text
+[pass] socket loopback exchanges data on an ephemeral port
+[pass] socket connect tries later localhost address candidates
+[fail] socket resolver errors use a resolver error category: ... REQUIRE(std::string_view(error.code().category().name()) == "getaddrinfo") failed
+0% tests passed, 1 tests failed out of 1
+```
+
+### Final Verification
+
+Ran:
+
+`cmake --build build && ctest --test-dir build -R socket --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`
+
+Exact test output:
+
+```text
+[ 20%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: socket
+1/1 Test #2: socket ...........................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/7 Test #1: colt_tests .......................   Passed    0.02 sec
+    Start 2: socket
+2/7 Test #2: socket ...........................   Passed    0.02 sec
+    Start 3: http_parser
+3/7 Test #3: http_parser ......................   Passed    0.01 sec
+    Start 4: http_serializer
+4/7 Test #4: http_serializer ..................   Passed    0.01 sec
+    Start 5: context
+5/7 Test #5: context ..........................   Passed    0.01 sec
+    Start 6: routing
+6/7 Test #6: routing ..........................   Passed    0.01 sec
+    Start 7: middleware
+7/7 Test #7: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.09 sec
+```
+
+`git diff --check` emitted no output and exited 0.
+
+Code and test commit: `421d051` (`fix: retry resolved socket addresses`).
