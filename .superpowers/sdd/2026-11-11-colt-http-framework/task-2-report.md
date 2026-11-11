@@ -302,4 +302,4 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.04 sec
 ```
 
-The trailing `git diff --check` exited 0 with no output. Commit hash will be entered after this fix is committed.
+The trailing `git diff --check` exited 0 with no output. Commit: `ccf63d2` (`fix: validate HTTP Host authorities`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were staged; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
