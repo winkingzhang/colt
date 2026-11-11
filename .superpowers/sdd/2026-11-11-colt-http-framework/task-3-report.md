@@ -181,4 +181,4 @@ Total Test time (real) =   0.05 sec
 
 Result: exit 0; build passed, all four CTest entries passed, and `git diff --check` emitted no output.
 
-Follow-up commit: `PENDING` (`build: link thread support for context tests`).
+Follow-up commit: `92566a7` (`build: link thread support for context tests`).
