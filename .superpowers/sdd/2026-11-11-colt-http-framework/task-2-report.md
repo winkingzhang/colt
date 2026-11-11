@@ -388,3 +388,70 @@ Total Test time (real) =   0.03 sec
 Result: exit 0; `git diff --check` emitted no output.
 
 Implementation commit: `97e1320` (`fix: validate IPvFuture literal tails`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+
+## Review Follow-Up: Strict IPv4 Components In IPv6 Literals
+
+Strictly validated IPv4 dotted quads as exactly four decimal octets in the range 0-255. Multi-digit octets with leading zeroes are rejected as noncanonical, and empty trailing components are rejected. IPv4 embedded in IPv6 is now accepted only as the final address component; the compressed form can contain it only on the right side of `::`. Tests include valid standalone-compatible embedded IPv4 forms `[2001:db8::192.0.2.1]` and `[::192.0.2.1]`, and reject `[192.0.2.1::]`, `[192.0.2.1:1::]`, `[::ffff:192.000.2.1]`, `[::ffff:192.0.2.1.]`, an incomplete dotted quad, and an out-of-range octet.
+
+The focused regression was run before the parser change using `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure`:
+
+```text
+[ 28%] Built target colt
+[ 42%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_parser_test.cpp.o
+[ 57%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/1 Test #2: http_parser ......................***Failed    0.90 sec
+[pass] parser limits expose the planned request line header and body defaults
+[pass] parser extracts a complete GET request and query parameters
+[pass] parser accepts a content-length POST body
+[pass] parser reports incomplete request lines headers and bodies
+[pass] parser rejects requests without exactly one nonempty Host header
+[pass] parser accepts valid Host authorities
+[fail] parser rejects malformed Host authorities and closes: /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/tests/http_parser_test.cpp:92: REQUIRE(result.status == ParseStatus::bad_request) failed
+[pass] parser accepts the exact configured request line header and body limits
+[pass] parser marks over-limit declared bodies for close
+[pass] parser rejects malformed request lines
+[pass] parser rejects duplicate and conflicting content lengths and closes
+[pass] parser rejects transfer encoding including combined framing
+[pass] parser rejects invalid percent escapes in query parameters
+[pass] parser splits query pairs before decoding and preserves encoded path delimiters
+[pass] parser honors an HTTP/1.1 connection close request
+[pass] parser preserves pipelined bytes after one request
+
+0% tests passed, 1 tests failed out of 1
+
+The following tests FAILED:
+	  2 - http_parser (Failed)
+Errors while running CTest
+```
+
+Result: expected failure reproduced by malformed IPv4/IPv6 authority cases.
+
+After the parser change, focused tests and the complete suite were run with `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+
+```text
+[ 28%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/1 Test #2: http_parser ......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/3 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/3 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/3 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.03 sec
+```
+
+Result: exit 0; `git diff --check` emitted no output. Commit hash: to be recorded after commit.

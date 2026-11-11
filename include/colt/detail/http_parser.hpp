@@ -80,7 +80,9 @@ inline bool is_ipv4(std::string_view address) {
     while (!address.empty()) {
         const auto dot = address.find('.');
         const auto part = address.substr(0, dot);
-        if (part.empty() || part.size() > 3) return false;
+        if (part.empty() || part.size() > 3 || (part.size() > 1 && part.front() == '0')) {
+            return false;
+        }
         unsigned value = 0;
         for (const char ch : part) {
             if (ch < '0' || ch > '9') return false;
@@ -90,6 +92,7 @@ inline bool is_ipv4(std::string_view address) {
         ++parts;
         if (dot == std::string_view::npos) break;
         address.remove_prefix(dot + 1);
+        if (address.empty()) return false;
     }
     return parts == 4;
 }
@@ -118,7 +121,6 @@ inline bool is_ipv6(std::string_view address) {
             }
             if (colon == std::string_view::npos) break;
             side.remove_prefix(colon + 1);
-            allow_ipv4 = true;
         }
         return true;
     };
@@ -129,7 +131,7 @@ inline bool is_ipv6(std::string_view address) {
     }
     const auto left = address.substr(0, compression);
     const auto right = address.substr(compression + 2);
-    if (!parse_groups(left, right.empty(), groups) ||
+    if (!parse_groups(left, false, groups) ||
         !parse_groups(right, true, groups)) return false;
     return groups < 8;
 }
