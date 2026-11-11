@@ -60,7 +60,7 @@ public:
                 return Response::text("Bad Request", 400);
             }
 
-            const Handler* matched_handler = nullptr;
+            Handler matched_handler;
             for (const auto& candidate : routes_) {
                 if (candidate.method != request.method) continue;
 
@@ -84,12 +84,12 @@ public:
                 if (!matches) continue;
 
                 request.path_params = std::move(params);
-                matched_handler = &candidate.handler;
+                matched_handler = candidate.handler;
                 break;
             }
 
             auto route = [&]() {
-                if (matched_handler) return (*matched_handler)(request, context);
+                if (matched_handler) return matched_handler(request, context);
                 return Response::text("Not Found", 404);
             };
 
