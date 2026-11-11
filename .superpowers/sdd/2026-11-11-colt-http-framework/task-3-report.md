@@ -133,3 +133,52 @@ Result: exit 0.
 ## Commit
 
 Implementation commit: `3c322b8` (`feat: add request context dependency injection`).
+
+## Portability Review Follow-Up: Thread Target
+
+Added `find_package(Threads REQUIRED)` in the test-enabled CMake configuration and linked `Threads::Threads` to `colt_tests`. The compiled `colt` library does not use threading for this task, so no thread dependency was added to the library target. This explicitly supplies the platform thread linkage required by the test's `std::thread` usage.
+
+### Configure Check
+
+Ran:
+
+`cmake -S . -B build -DCOLT_BUILD_TESTS=ON`
+
+```text
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Configuring done (0.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+```
+
+Result: exit 0; CMake detected the platform thread support and resolved `Threads`.
+
+### Build, CTest, And Diff Check
+
+Ran:
+
+`cmake --build build && ctest --test-dir build --output-on-failure && git diff --check`
+
+```text
+[ 25%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/4 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/4 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/4 Test #3: http_serializer ..................   Passed    0.01 sec
+    Start 4: context
+4/4 Test #4: context ..........................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =   0.05 sec
+```
+
+Result: exit 0; build passed, all four CTest entries passed, and `git diff --check` emitted no output.
+
+Follow-up commit: `PENDING` (`build: link thread support for context tests`).

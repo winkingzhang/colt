@@ -11,6 +11,7 @@ target_include_directories(colt PUBLIC
 )
 
 if(COLT_BUILD_TESTS)
+    find_package(Threads REQUIRED)
     enable_testing()
     add_executable(colt_tests
         tests/test_main.cpp
@@ -19,7 +20,7 @@ if(COLT_BUILD_TESTS)
         tests/http_serializer_test.cpp
         tests/context_test.cpp
     )
-    target_link_libraries(colt_tests PRIVATE Colt::colt)
+    target_link_libraries(colt_tests PRIVATE Colt::colt Threads::Threads)
     add_test(NAME colt_tests COMMAND colt_tests)
     add_test(NAME http_parser COMMAND colt_tests parser)
     add_test(NAME http_serializer COMMAND colt_tests serializer)
