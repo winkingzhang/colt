@@ -251,4 +251,4 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.04 sec
 ```
 
-`git diff --check` exited 0 with no output. Commit hash will be recorded here after committing the review fixes.
+`git diff --check` exited 0 with no output. Review-fix commit: `82cdc69` (`fix: enforce HTTP host and response framing rules`). The staged files were limited to `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, `tests/http_serializer_test.cpp`, and this report; existing untracked `docs/` was left unstaged. `git diff HEAD^ HEAD --check` exited 0 with no output.
