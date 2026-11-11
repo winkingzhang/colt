@@ -189,3 +189,47 @@ d273d47
 ```
 
 `git diff --check` emitted no output and exited 0. The path-parameter middleware regression and existing middleware order, short-circuit, exception, 404, malformed-escape, and repeated-`next()` coverage all passed.
+
+## Stateful Handler Lifetime Review Follow-Up
+
+Re-review found that copying the matched `std::function` per dispatch resets mutable by-value handler state on each request. Added a regression test with a mutable handler that returns increasing values across two dispatches; before the fix, the second result was not `2`. Route entries are now individually heap-owned by `std::unique_ptr<Route>` in the route vector. Dispatch keeps a pointer to the selected handler inside its stable route entry, so vector reallocation caused by middleware route registration does not invalidate it, while the original stateful callable remains shared across dispatches. The middleware route-registration growth regression remains in place and passes.
+
+Implementation commit: `4c5b035` (`fix: preserve stateful route handlers`).
+
+Post-commit verification command:
+
+`cmake --build build && ctest --test-dir build -R 'routing|middleware' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check && git rev-parse --short HEAD`
+
+Exact output:
+
+```text
+[ 20%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 5: routing
+1/2 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+2/2 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 2
+Total Test time (real) =   0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/6 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/6 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/6 Test #3: http_serializer ..................   Passed    0.01 sec
+    Start 4: context
+4/6 Test #4: context ..........................   Passed    0.01 sec
+    Start 5: routing
+5/6 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+6/6 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 6
+Total Test time (real) =   0.06 sec
+4c5b035
+```
+
+`git diff --check` emitted no output and exited 0. The stateful-handler regression, middleware route-registration/reallocation regression, and prior middleware path-parameter visibility regression all passed.
