@@ -60,20 +60,17 @@ Restored the forwarding methods and ran the focused and full verification comman
 Output:
 
 ```text
-[ 20%] Built target colt
-[ 30%] Building CXX object CMakeFiles/colt_tests.dir/tests/routing_test.cpp.o
-[ 40%] Building CXX object CMakeFiles/colt_tests.dir/tests/middleware_test.cpp.o
-[ 50%] Linking CXX executable colt_tests
-[100%] Built target colt_tests
-Test project .../build
+ [20%] Built target colt
+ [100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
     Start 5: routing
-1/2 Test #5: routing ..........................   Passed    0.30 sec
+1/2 Test #5: routing ..........................   Passed    0.01 sec
     Start 6: middleware
-2/2 Test #6: middleware .......................   Passed    0.02 sec
+2/2 Test #6: middleware .......................   Passed    0.01 sec
 
 100% tests passed, 0 tests failed out of 2
-Total Test time ...
-Test project .../build
+Total Test time (real) =   0.04 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
     Start 1: colt_tests
 1/6 Test #1: colt_tests .......................   Passed    0.01 sec
     Start 2: http_parser
@@ -85,10 +82,10 @@ Test project .../build
     Start 5: routing
 5/6 Test #5: routing ..........................   Passed    0.01 sec
     Start 6: middleware
-6/6 Test #6: middleware .......................   Passed    0.01 sec
+ 6/6 Test #6: middleware .......................   Passed    0.01 sec
 
 100% tests passed, 0 tests failed out of 6
-Total Test time ...
+Total Test time (real) =   0.06 sec
 ```
 
 Result: build succeeded, focused tests passed 2/2, full CTest passed 6/6, and `git diff --check` produced no output (exit 0).
@@ -103,4 +100,4 @@ Result: build succeeded, focused tests passed 2/2, full CTest passed 6/6, and `g
 
 ## Commit
 
-Implementation commit: `PENDING` (`feat: add route dispatch and synchronous middleware`).
+Implementation commit: `ce11e16` (`feat: add route dispatch and synchronous middleware`).
