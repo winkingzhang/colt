@@ -410,3 +410,68 @@ Total Test time (real) =   0.07 sec
 
 Test commit: `3bd65a7` (`test: append newly received socket bytes`).
 Report commit: `2aa8e77` (`docs: record socket byte accumulation fix`).
+
+## Final Review Follow-Up: Suppress Windows min/max Macros
+
+Defined `NOMINMAX` under `_WIN32`, guarded with `#ifndef`, before including any Windows SDK headers in `src/platform/socket.cpp`. This prevents SDK `min`/`max` macros from interfering with `std::min` and `std::numeric_limits<DWORD>::max()`.
+
+### Windows Compile Check
+
+Attempted a compile-only Windows-target check with:
+
+`clang-cl --target=x86_64-pc-windows-msvc /std:c++latest /c /Isrc src/platform/socket.cpp /Fo"build/socket-win.obj"`
+
+It could not compile because this host does not have the Windows C++ standard library/SDK headers configured:
+
+```text
+src/platform/socket.hpp(3,10): fatal error: 'chrono' file not found
+```
+
+Therefore the Windows branch remains uncompiled locally; `NOMINMAX` is present before the Windows headers by source inspection.
+
+### Local Verification
+
+Ran:
+
+`cmake --build build && ctest --test-dir build --output-on-failure && git diff --check`
+
+Exact CTest output:
+
+```text
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/7 Test #1: colt_tests .......................   Passed    0.30 sec
+    Start 2: socket
+2/7 Test #2: socket ...........................   Passed    0.02 sec
+    Start 3: http_parser
+3/7 Test #3: http_parser ......................   Passed    0.01 sec
+    Start 4: http_serializer
+4/7 Test #4: http_serializer ..................   Passed    0.01 sec
+    Start 5: context
+5/7 Test #5: context ..........................   Passed    0.02 sec
+    Start 6: routing
+6/7 Test #6: routing ..........................   Passed    0.01 sec
+    Start 7: middleware
+7/7 Test #7: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.39 sec
+```
+
+Also ran focused socket coverage:
+
+`ctest --test-dir build -R socket --output-on-failure`
+
+```text
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: socket
+1/1 Test #2: socket ...........................   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.03 sec
+```
+
+Both `git diff --check` invocations emitted no output and exited 0.
+
+Source commit: `32aa0e5` (`fix: suppress Windows min max macros`).
+Report commit: to be recorded after commit.
