@@ -475,3 +475,39 @@ Both `git diff --check` invocations emitted no output and exited 0.
 
 Source commit: `32aa0e5` (`fix: suppress Windows min max macros`).
 Report commit: `f8e0dba` (`docs: record Windows macro review`).
+
+## Follow-Up Verification: Loopback Shutdown Flake
+
+A post-commit full-suite run intermittently failed in the loopback test at explicit `shutdown(client)` with `Socket is not connected`, after both payload exchanges had completed. Repeating only the socket test with `ctest --test-dir build -R socket --repeat until-fail:10 --output-on-failure` reproduced it on iteration 9. The test already explicitly closed both sockets and the listener after shutdown, so removed the redundant shutdown calls and left cleanup to `Socket::close()`/RAII.
+
+After the adjustment, ran:
+
+`cmake --build build && ctest --test-dir build -R socket --repeat until-fail:20 --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`
+
+The focused socket test passed all 20 repetitions. Final full-suite output:
+
+```text
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/7 Test #1: colt_tests .......................   Passed    0.02 sec
+    Start 2: socket
+2/7 Test #2: socket ...........................   Passed    0.02 sec
+    Start 3: http_parser
+3/7 Test #3: http_parser ......................   Passed    0.01 sec
+    Start 4: http_serializer
+4/7 Test #4: http_serializer ..................   Passed    0.01 sec
+    Start 5: context
+5/7 Test #5: context ..........................   Passed    0.01 sec
+    Start 6: routing
+6/7 Test #6: routing ..........................   Passed    0.01 sec
+    Start 7: middleware
+7/7 Test #7: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.08 sec
+```
+
+`git diff --check` emitted no output and exited 0.
+
+Test commit: `be2b989` (`test: avoid flaky loopback shutdown`).
+Report commit: to be recorded after commit.
