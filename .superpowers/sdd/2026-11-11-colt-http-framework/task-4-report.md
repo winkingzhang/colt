@@ -145,3 +145,47 @@ ff2e9c1
 ```
 
 `git diff --check` emitted no output and exited 0. Route/middleware ordering, short-circuit, 404, malformed escape, and repeated-`next()` tests remain covered and pass.
+
+## Matched Handler Lifetime Review Follow-Up
+
+Re-review found that dispatch held a pointer to a `Handler` stored in `routes_` while middleware ran. A middleware capturing the application could register routes and reallocate that vector before `next()` invoked the pointer. Added a regression that registers 1,024 routes from middleware, then calls `next()` and asserts the originally matched parameterized route still handles the request. The test failed before the fix. Dispatch now copies the selected `Handler` into a local `std::function` before middleware; route registration remains available during middleware, and the earlier path-parameter visibility behavior is preserved.
+
+Implementation commit: `d273d47` (`fix: preserve matched handler during middleware`).
+
+Post-commit verification command:
+
+`cmake --build build && ctest --test-dir build -R 'routing|middleware' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check && git rev-parse --short HEAD`
+
+Exact output:
+
+```text
+[ 20%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 5: routing
+1/2 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+2/2 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 2
+Total Test time (real) =   0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/6 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/6 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/6 Test #3: http_serializer ..................   Passed    0.01 sec
+    Start 4: context
+4/6 Test #4: context ..........................   Passed    0.01 sec
+    Start 5: routing
+5/6 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+6/6 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 6
+Total Test time (real) =   0.07 sec
+d273d47
+```
+
+`git diff --check` emitted no output and exited 0. The path-parameter middleware regression and existing middleware order, short-circuit, exception, 404, malformed-escape, and repeated-`next()` coverage all passed.
