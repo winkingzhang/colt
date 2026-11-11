@@ -31,7 +31,7 @@ inline void require(bool condition, std::string_view expression,
     }
 }
 
-int run_all_tests();
+int run_all_tests(std::string_view filter = {});
 
 } // namespace colt::test
 

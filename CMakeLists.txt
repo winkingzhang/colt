@@ -15,7 +15,11 @@ if(COLT_BUILD_TESTS)
     add_executable(colt_tests
         tests/test_main.cpp
         tests/build_test.cpp
+        tests/http_parser_test.cpp
+        tests/http_serializer_test.cpp
     )
     target_link_libraries(colt_tests PRIVATE Colt::colt)
     add_test(NAME colt_tests COMMAND colt_tests)
+    add_test(NAME http_parser COMMAND colt_tests parser)
+    add_test(NAME http_serializer COMMAND colt_tests serializer)
 endif()

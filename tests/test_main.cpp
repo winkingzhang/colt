@@ -3,9 +3,10 @@
 #include <exception>
 #include <iostream>
 
-int colt::test::run_all_tests() {
+int colt::test::run_all_tests(std::string_view filter) {
     int failures = 0;
     for (const auto& test : test_cases()) {
+        if (!filter.empty() && test.name.find(filter) == std::string_view::npos) continue;
         try {
             test.run();
             std::cout << "[pass] " << test.name << '\n';
@@ -17,6 +18,7 @@ int colt::test::run_all_tests() {
     return failures;
 }
 
-int main() {
-    return colt::test::run_all_tests() == 0 ? 0 : 1;
+int main(int argc, char** argv) {
+    const std::string_view filter = argc > 1 ? argv[1] : "";
+    return colt::test::run_all_tests(filter) == 0 ? 0 : 1;
 }
