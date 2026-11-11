@@ -387,4 +387,4 @@ Total Test time (real) =   0.03 sec
 
 Result: exit 0; `git diff --check` emitted no output.
 
-Commit hash: to be recorded after commit.
+Implementation commit: `97e1320` (`fix: validate IPvFuture literal tails`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
