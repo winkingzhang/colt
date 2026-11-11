@@ -348,4 +348,4 @@ Total Test time (real) =   0.13 sec
 `git diff --check` emitted no output and exited 0.
 
 Test commit: `901a383` (`test: handle partial socket reads`).
-Report commit: to be recorded after commit.
+Report commit: `625ec81` (`docs: record partial-read test verification`).
