@@ -101,3 +101,47 @@ Result: build succeeded, focused tests passed 2/2, full CTest passed 6/6, and `g
 ## Commit
 
 Implementation commit: `ce11e16` (`feat: add route dispatch and synchronous middleware`).
+
+## Middleware Path-Parameter Review Follow-Up
+
+Reviewer found middleware could not read matched path parameters because route matching and parameter assignment occurred only when the continuation reached the handler. Added a regression test that reads `request.path_params.at("id")` before calling `next()`. It failed before the fix with the expected failed body assertion. Dispatch now resolves the first matching method/path and assigns its decoded parameters before entering middleware; the selected handler is still invoked only when the continuation chain reaches its terminal step. Unmatched valid paths still return 404 from that terminal step.
+
+Implementation commit: `ff2e9c1` (`fix: populate route params before middleware`).
+
+Post-commit verification command:
+
+`cmake --build build && ctest --test-dir build -R 'routing|middleware' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check && git rev-parse --short HEAD`
+
+Exact output:
+
+```text
+[ 20%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 5: routing
+1/2 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+2/2 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 2
+Total Test time (real) =   0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/6 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/6 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/6 Test #3: http_serializer ..................   Passed    0.01 sec
+    Start 4: context
+4/6 Test #4: context ..........................   Passed    0.01 sec
+    Start 5: routing
+5/6 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+6/6 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 6
+Total Test time (real) =   0.06 sec
+ff2e9c1
+```
+
+`git diff --check` emitted no output and exited 0. Route/middleware ordering, short-circuit, 404, malformed escape, and repeated-`next()` tests remain covered and pass.
