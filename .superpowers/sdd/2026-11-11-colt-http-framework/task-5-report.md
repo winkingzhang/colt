@@ -349,3 +349,64 @@ Total Test time (real) =   0.13 sec
 
 Test commit: `901a383` (`test: handle partial socket reads`).
 Report commit: `625ec81` (`docs: record partial-read test verification`).
+
+## Final Review Follow-Up: Preserve Newly Read Bytes
+
+Corrected the round-trip helper to append from `buffer.data() + received`, matching the destination offset used by the receive subspan. The helper limits each receive request to three bytes, forcing multiple reads for each payload without depending on TCP segmentation. Existing five-second receive timeouts and zero-byte EOF failure behavior remain.
+
+### Red Phase
+
+With the three-byte receive limit in place but before fixing the append offset, ran:
+
+`cmake --build build && ctest --test-dir build -R socket --output-on-failure`
+
+The focused test failed at the expected accumulated request comparison:
+
+```text
+[fail] socket loopback exchanges data on an ephemeral port: ... REQUIRE(receive_payload(server, request.size()) == request) failed
+0% tests passed, 1 tests failed out of 1
+```
+
+### Final Verification
+
+After correcting the append source pointer, ran:
+
+`cmake --build build && ctest --test-dir build -R socket --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`
+
+Exact test output:
+
+```text
+[ 20%] Built target colt
+[ 30%] Building CXX object CMakeFiles/colt_tests.dir/tests/build_test.cpp.o
+[ 40%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: socket
+1/1 Test #2: socket ...........................   Passed    0.45 sec
+
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.46 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/7 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: socket
+2/7 Test #2: socket ...........................   Passed    0.01 sec
+    Start 3: http_parser
+3/7 Test #3: http_parser ......................   Passed    0.01 sec
+    Start 4: http_serializer
+4/7 Test #4: http_serializer ..................   Passed    0.02 sec
+    Start 5: context
+5/7 Test #5: context ..........................   Passed    0.01 sec
+    Start 6: routing
+6/7 Test #6: routing ..........................   Passed    0.01 sec
+    Start 7: middleware
+7/7 Test #7: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.07 sec
+```
+
+`git diff --check` emitted no output and exited 0.
+
+Test commit: `3bd65a7` (`test: append newly received socket bytes`).
+Report commit: to be recorded after commit.
