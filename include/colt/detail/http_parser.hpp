@@ -463,8 +463,9 @@ inline std::string serialize_response(const Response& response, bool keep_alive)
                                              })) continue;
         result += name + ": " + value + "\r\n";
     }
-    if (!body_forbidden) {
-        result += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
+    if (!body_forbidden || response.status == 205) {
+        const auto content_length = response.status == 205 ? 0 : response.body.size();
+        result += "Content-Length: " + std::to_string(content_length) + "\r\n";
     }
     result += keep_alive ? "Connection: keep-alive\r\n" : "Connection: close\r\n";
     result += "\r\n";

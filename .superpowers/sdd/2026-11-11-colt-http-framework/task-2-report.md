@@ -502,3 +502,95 @@ Total Test time (real) =   0.03 sec
 ```
 
 Result: exit 0; the trailing `git diff --check` emitted no output. Commit: `d0b06a5` (`test: cover aggregate header limit terminator`). Only `tests/http_parser_test.cpp` and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output. The finding is not reproducible against the current parser: the terminator CRLF was already included in the existing calculation.
+
+## Final Review Follow-Up: Persistent Framing For 205
+
+`serialize_response` now emits `Content-Length: 0` for status 205 while continuing to suppress response body bytes. The 204 behavior remains unchanged and omits `Content-Length`. The serializer regression asserts the exact 205 response including zero-length framing and `Connection: keep-alive`, and independently asserts that the supplied body is absent; the existing 204 assertion still checks no content length.
+
+The focused regression ran before the implementation change with `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure`:
+
+```text
+[ 28%] Built target colt
+[ 42%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_serializer_test.cpp.o
+[ 57%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 3: http_serializer
+1/1 Test #3: http_serializer ..................***Failed    0.91 sec
+[pass] serializer emits a default 200 response
+[pass] serializer emits custom status headers and byte-count content length
+[pass] serializer replaces supplied content length
+[pass] serializer enforces keep alive or close connection policy
+[pass] serializer rejects invalid response header names
+[pass] serializer rejects response header values containing controls
+[pass] serializer rejects transfer encoding to avoid conflicting framing
+[pass] serializer rejects status values outside the three-digit HTTP range
+[pass] serializer suppresses bodies and content length for 204 responses
+[fail] serializer frames bodyless 205 responses with zero length and keep alive: /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/tests/http_serializer_test.cpp:113: REQUIRE(serialized == "HTTP/1.1 205 Reset Content\\r\\nContent-Length: 0\\r\\nConnection: keep-alive\\r\\n\\r\\n") failed
+[pass] serializer suppresses bodies for informational and 304 responses
+
+0% tests passed, 1 tests failed out of 1
+
+The following tests FAILED:
+	  3 - http_serializer (Failed)
+Errors while running CTest
+```
+
+Result: expected failure reproduced because status 205 omitted the required zero-length framing.
+
+An initial implementation allowed the 205 content-length branch but used the response body's original size. The focused command was rerun and correctly continued failing the exact 205 assertion, demonstrating that 205 must advertise zero rather than the suppressed body's length:
+
+```text
+[ 28%] Built target colt
+[ 42%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_parser_test.cpp.o
+[ 57%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_serializer_test.cpp.o
+[ 71%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 3: http_serializer
+1/1 Test #3: http_serializer ..................***Failed    0.42 sec
+[pass] serializer emits a default 200 response
+[pass] serializer emits custom status headers and byte-count content length
+[pass] serializer replaces supplied content length
+[pass] serializer enforces keep alive or close connection policy
+[pass] serializer rejects invalid response header names
+[pass] serializer rejects response header values containing controls
+[pass] serializer rejects transfer encoding to avoid conflicting framing
+[pass] serializer rejects status values outside the three-digit HTTP range
+[pass] serializer suppresses bodies and content length for 204 responses
+[fail] serializer frames bodyless 205 responses with zero length and keep alive: /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/tests/http_serializer_test.cpp:113: REQUIRE(serialized == "HTTP/1.1 205 Reset Content\\r\\nContent-Length: 0\\r\\nConnection: keep-alive\\r\\n\\r\\n") failed
+[pass] serializer suppresses bodies for informational and 304 responses
+
+0% tests passed, 1 tests failed out of 1
+
+The following tests FAILED:
+	  3 - http_serializer (Failed)
+Errors while running CTest
+```
+
+After the implementation change, final verification ran with `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+
+```text
+[ 28%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 3: http_serializer
+1/1 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) = 0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/3 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/3 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/3 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) = 0.04 sec
+```
+
+Result: exit 0; trailing `git diff --check` emitted no output. Commit hash: to be recorded after commit.

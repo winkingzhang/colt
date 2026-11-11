@@ -105,8 +105,17 @@ TEST_CASE("serializer suppresses bodies and content length for 204 responses") {
     REQUIRE(serialized.find("Content-Length") == std::string::npos);
 }
 
+TEST_CASE("serializer frames bodyless 205 responses with zero length and keep alive") {
+    const auto response = colt::Response::text("must not be sent", 205);
+    const auto serialized = colt::detail::serialize_response(response, true);
+
+    REQUIRE(serialized ==
+            "HTTP/1.1 205 Reset Content\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n");
+    REQUIRE(serialized.find("must not be sent") == std::string::npos);
+}
+
 TEST_CASE("serializer suppresses bodies for informational and 304 responses") {
-    for (const int status : {100, 304, 205}) {
+    for (const int status : {100, 304}) {
         const auto response = colt::Response::text("must not be sent", status);
         const auto serialized = colt::detail::serialize_response(response, true);
         REQUIRE(serialized.find("must not be sent") == std::string::npos);
