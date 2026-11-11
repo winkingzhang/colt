@@ -19,10 +19,14 @@ if(COLT_BUILD_TESTS)
         tests/http_parser_test.cpp
         tests/http_serializer_test.cpp
         tests/context_test.cpp
+        tests/routing_test.cpp
+        tests/middleware_test.cpp
     )
     target_link_libraries(colt_tests PRIVATE Colt::colt Threads::Threads)
     add_test(NAME colt_tests COMMAND colt_tests)
     add_test(NAME http_parser COMMAND colt_tests parser)
     add_test(NAME http_serializer COMMAND colt_tests serializer)
     add_test(NAME context COMMAND colt_tests context)
+    add_test(NAME routing COMMAND colt_tests routing)
+    add_test(NAME middleware COMMAND colt_tests middleware)
 endif()

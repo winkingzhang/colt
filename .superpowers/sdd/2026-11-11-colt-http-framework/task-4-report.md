@@ -1,0 +1,106 @@
+# Task 4 Implementation And Verification Report
+
+## Scope
+
+Implemented Task 4 only:
+
+- Added header-only `colt::Application`, route helpers, middleware, dispatch, and application-level DI registration forwarding in `include/colt/application.hpp`.
+- Added route and middleware tests in `tests/routing_test.cpp` and `tests/middleware_test.cpp`.
+- Registered both test sources and the focused `routing` and `middleware` CTest entries in `CMakeLists.txt`.
+- Preserved the existing parser and its tests. The parked Task 2 raw request-target-character finding was not changed.
+
+`dispatch` creates one `RequestContext` per request; matches exact method and segment count; splits raw paths before percent-decoding segments; places decoded matched parameters in `Request::path_params`; and returns 400 for malformed path escapes. Middleware is invoked in registration order and unwinds naturally as continuations return. Handler/middleware exceptions and repeated calls to a middleware's own `next` become 500 responses. A repeated continuation does not dispatch the downstream chain again.
+
+## TDD And Verification
+
+Commands below ran from `/Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework`.
+
+### Initial Expected Red Phase
+
+After adding the tests and CMake registration, before creating `include/colt/application.hpp`, ran:
+
+`cmake --build build && ctest --test-dir build -R 'routing|middleware' --output-on-failure`
+
+Relevant output:
+
+```text
+[ 30%] Building CXX object CMakeFiles/colt_tests.dir/tests/routing_test.cpp.o
+.../tests/routing_test.cpp:3:10: fatal error: 'colt/application.hpp' file not found
+    3 | #include <colt/application.hpp>
+      |          ^~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+make[2]: *** [CMakeFiles/colt_tests.dir/tests/routing_test.cpp.o] Error 1
+make[1]: *** [CMakeFiles/colt_tests.dir/all] Error 2
+make: *** [all] Error 2
+```
+
+Result: expected nonzero build exit because the application interface had not been implemented.
+
+### DI Forwarding Red/Green
+
+To verify the explicit DI forwarding requirement independently, temporarily removed both forwarding methods while retaining the new test, then ran:
+
+`cmake --build build && ctest --test-dir build -R routing --output-on-failure`
+
+It failed at compile time as expected:
+
+```text
+tests/routing_test.cpp:105:9: error: no member named 'add_request' in 'colt::Application'
+tests/routing_test.cpp:106:9: error: no member named 'add_singleton' in 'colt::Application'
+4 errors generated.
+make[2]: *** [CMakeFiles/colt_tests.dir/tests/routing_test.cpp.o] Error 1
+make[1]: *** [CMakeFiles/colt_tests.dir/all] Error 2
+make: *** [Makefile:101: all] Error 2
+```
+
+Restored the forwarding methods and ran the focused and full verification command:
+
+`cmake --build build && ctest --test-dir build -R 'routing|middleware' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`
+
+Output:
+
+```text
+[ 20%] Built target colt
+[ 30%] Building CXX object CMakeFiles/colt_tests.dir/tests/routing_test.cpp.o
+[ 40%] Building CXX object CMakeFiles/colt_tests.dir/tests/middleware_test.cpp.o
+[ 50%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project .../build
+    Start 5: routing
+1/2 Test #5: routing ..........................   Passed    0.30 sec
+    Start 6: middleware
+2/2 Test #6: middleware .......................   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 2
+Total Test time ...
+Test project .../build
+    Start 1: colt_tests
+1/6 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/6 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/6 Test #3: http_serializer ..................   Passed    0.01 sec
+    Start 4: context
+4/6 Test #4: context ..........................   Passed    0.01 sec
+    Start 5: routing
+5/6 Test #5: routing ..........................   Passed    0.01 sec
+    Start 6: middleware
+6/6 Test #6: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 6
+Total Test time ...
+```
+
+Result: build succeeded, focused tests passed 2/2, full CTest passed 6/6, and `git diff --check` produced no output (exit 0).
+
+### Review
+
+- Reviewed the new route segmentation/decoding, route matching, middleware continuation state, and CMake registration against the Task 4 brief.
+- Confirmed tests cover exact method/path, multi-parameter extraction, decoded values, encoded slash boundary preservation, wrong method and segment count 404, unmatched route 404, malformed escape 400, middleware request/response order, short circuit, handler and middleware exceptions, repeated `next()` returning 500 without duplicate handler invocation, and singleton/request DI forwarding.
+- No subagents were used, as instructed. Review was performed inline by the implementer.
+- `git diff --check` passed. The unrelated pre-existing untracked `docs/` directory was not staged.
+- Verification was run with the available Clang toolchain on macOS. GCC/Linux and MSVC/Windows were not available locally and were not tested.
+
+## Commit
+
+Implementation commit: `PENDING` (`feat: add route dispatch and synchronous middleware`).
