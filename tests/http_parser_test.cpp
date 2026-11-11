@@ -2,6 +2,7 @@
 
 #include <colt/detail/http_parser.hpp>
 
+#include <array>
 #include <string>
 #include <string_view>
 
@@ -61,6 +62,32 @@ TEST_CASE("parser rejects requests without exactly one nonempty Host header") {
     const auto empty = parse_request("GET / HTTP/1.1\r\nHost: \t \r\n\r\n");
     REQUIRE(empty.status == ParseStatus::bad_request);
     REQUIRE(empty.close_connection);
+}
+
+TEST_CASE("parser accepts valid Host authorities") {
+    constexpr std::array authorities{
+             "example.com", "127.0.0.1:8080", "example-host:65535", "[2001:db8::1]",
+             "[2001:db8::1]:443", "[::ffff:192.0.2.1]:80"};
+    for (const std::string_view authority : authorities) {
+        const std::string request = "GET / HTTP/1.1\r\nHost: " + std::string(authority) +
+                                    "\r\n\r\n";
+        REQUIRE(parse_request(request).status == ParseStatus::complete);
+    }
+}
+
+TEST_CASE("parser rejects malformed Host authorities and closes") {
+    constexpr std::array authorities{
+             "", ":80", "x y", "example.com:", "example.com:abc", "example.com:65536",
+             "example.com:999999999999999999999", "2001:db8::1", "[]", "[example.com]",
+             "[2001:db8::1", "2001:db8::1]", "[2001:db8::1]]", "user@example.com",
+             "example.com/path", "example.com?query", "example.com\tbad"};
+    for (const std::string_view authority : authorities) {
+        const std::string request = "GET / HTTP/1.1\r\nHost: " + std::string(authority) +
+                                    "\r\n\r\n";
+        const auto result = parse_request(request);
+        REQUIRE(result.status == ParseStatus::bad_request);
+        REQUIRE(result.close_connection);
+    }
 }
 
 TEST_CASE("parser accepts the exact configured request line header and body limits") {

@@ -252,3 +252,54 @@ Total Test time (real) =   0.04 sec
 ```
 
 `git diff --check` exited 0 with no output. Review-fix commit: `82cdc69` (`fix: enforce HTTP host and response framing rules`). The staged files were limited to `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, `tests/http_serializer_test.cpp`, and this report; existing untracked `docs/` was left unstaged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+
+## Review Follow-Up: Host Authority Validation
+
+Added focused validation for exactly one HTTP/1.1 Host authority. Unbracketed authorities accept a nonempty reg-name (including valid percent-encoded octets) with an optional numeric port from 0 through 65535. Bracketed hosts accept IPv6 or IPvFuture literals, optionally followed by a numeric port. Empty hosts/ports, malformed percent escapes, invalid port syntax or overflow, unbracketed IPv6, malformed brackets, userinfo, whitespace/control, and path/query suffixes return `bad_request` and close the connection. Regression tests cover accepted DNS/IPv4-like and bracketed IPv6 forms and the requested rejection cases.
+
+The focused parser test was first run before implementing the validator with `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure` and failed as expected:
+
+```text
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/1 Test #2: http_parser ......................***Failed    0.41 sec
+[pass] parser limits expose the planned request line header and body defaults
+[pass] parser extracts a complete GET request and query parameters
+[pass] parser accepts a content-length POST body
+[pass] parser reports incomplete request lines headers and bodies
+[pass] parser rejects requests without exactly one nonempty Host header
+[pass] parser accepts valid Host authorities
+[fail] parser rejects malformed Host authorities and closes: .../tests/http_parser_test.cpp:85: REQUIRE(result.status == ParseStatus::bad_request) failed
+0% tests passed, 1 tests failed out of 1
+```
+
+The final command was `cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+
+```text
+[ 28%] Built target colt
+[ 42%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_parser_test.cpp.o
+[ 57%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/2 Test #2: http_parser ......................   Passed    0.41 sec
+    Start 3: http_serializer
+2/2 Test #3: http_serializer ..................   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.44 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/3 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/3 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/3 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.04 sec
+```
+
+The trailing `git diff --check` exited 0 with no output. Commit hash will be entered after this fix is committed.

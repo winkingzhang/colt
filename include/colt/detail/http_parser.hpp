@@ -55,6 +55,142 @@ inline int hex_value(char ch) {
     return -1;
 }
 
+inline bool is_reg_name(std::string_view host) {
+    if (host.empty()) return false;
+    for (std::size_t i = 0; i < host.size(); ++i) {
+        const char ch = host[i];
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9') || ch == '-' || ch == '.' || ch == '_' || ch == '~' ||
+            ch == '!' || ch == '$' || ch == '&' || ch == '\'' || ch == '(' || ch == ')' ||
+            ch == '*' || ch == '+' || ch == ',' || ch == ';' || ch == '=') {
+            continue;
+        }
+        if (ch == '%' && i + 2 < host.size() && hex_value(host[i + 1]) >= 0 &&
+            hex_value(host[i + 2]) >= 0) {
+            i += 2;
+            continue;
+        }
+        return false;
+    }
+    return true;
+}
+
+inline bool is_ipv4(std::string_view address) {
+    std::size_t parts = 0;
+    while (!address.empty()) {
+        const auto dot = address.find('.');
+        const auto part = address.substr(0, dot);
+        if (part.empty() || part.size() > 3) return false;
+        unsigned value = 0;
+        for (const char ch : part) {
+            if (ch < '0' || ch > '9') return false;
+            value = value * 10 + static_cast<unsigned>(ch - '0');
+        }
+        if (value > 255) return false;
+        ++parts;
+        if (dot == std::string_view::npos) break;
+        address.remove_prefix(dot + 1);
+    }
+    return parts == 4;
+}
+
+inline bool is_ipv6(std::string_view address) {
+    const auto compression = address.find("::");
+    if (compression != std::string_view::npos &&
+        address.find("::", compression + 2) != std::string_view::npos) return false;
+    if (address.empty() || (compression == std::string_view::npos &&
+                            (address.front() == ':' || address.back() == ':'))) return false;
+
+    const auto parse_groups = [](std::string_view side, bool allow_ipv4, unsigned& count) {
+        while (!side.empty()) {
+            const auto colon = side.find(':');
+            const auto group = side.substr(0, colon);
+            if (group.empty()) return false;
+            if (group.find('.') != std::string_view::npos) {
+                if (!allow_ipv4 || colon != std::string_view::npos || !is_ipv4(group)) return false;
+                count += 2;
+            } else {
+                if (group.size() > 4) return false;
+                for (const char ch : group) {
+                    if (hex_value(ch) < 0) return false;
+                }
+                ++count;
+            }
+            if (colon == std::string_view::npos) break;
+            side.remove_prefix(colon + 1);
+            allow_ipv4 = true;
+        }
+        return true;
+    };
+
+    unsigned groups = 0;
+    if (compression == std::string_view::npos) {
+        return parse_groups(address, true, groups) && groups == 8;
+    }
+    const auto left = address.substr(0, compression);
+    const auto right = address.substr(compression + 2);
+    if (!parse_groups(left, right.empty(), groups) ||
+        !parse_groups(right, true, groups)) return false;
+    return groups < 8;
+}
+
+inline bool is_ip_literal(std::string_view literal) {
+    if (literal.empty()) return false;
+    if (literal.front() == 'v' || literal.front() == 'V') {
+        const auto dot = literal.find('.');
+        if (dot == std::string_view::npos || dot == 1) return false;
+        for (const char ch : literal.substr(1, dot - 1)) {
+            if (hex_value(ch) < 0) return false;
+        }
+        const auto tail = literal.substr(dot + 1);
+        if (tail.empty()) return false;
+        for (const unsigned char ch : tail) {
+            if (!is_token_char(ch) && ch != ':') return false;
+        }
+        return true;
+    }
+    return is_ipv6(literal);
+}
+
+inline bool is_valid_host_authority(std::string_view authority) {
+    if (authority.empty()) return false;
+    std::string_view host;
+    std::string_view port;
+    if (authority.front() == '[') {
+        const auto close = authority.find(']');
+        if (close == std::string_view::npos ||
+            !is_ip_literal(authority.substr(1, close - 1))) return false;
+        host = authority.substr(1, close - 1);
+        const auto suffix = authority.substr(close + 1);
+        if (!suffix.empty()) {
+            if (suffix.front() != ':') return false;
+            port = suffix.substr(1);
+        }
+    } else {
+        const auto colon = authority.find(':');
+        if (colon != std::string_view::npos) {
+            if (authority.find(':', colon + 1) != std::string_view::npos) return false;
+            host = authority.substr(0, colon);
+            port = authority.substr(colon + 1);
+        } else {
+            host = authority;
+        }
+        if (!is_reg_name(host)) return false;
+    }
+    if (!port.empty()) {
+        unsigned value = 0;
+        for (const char ch : port) {
+            if (ch < '0' || ch > '9') return false;
+            const unsigned digit = static_cast<unsigned>(ch - '0');
+            if (value > (65535 - digit) / 10) return false;
+            value = value * 10 + digit;
+        }
+    } else if (authority.back() == ':') {
+        return false;
+    }
+    return true;
+}
+
 inline bool decode_component(std::string_view input, std::string& output) {
     for (std::size_t i = 0; i < input.size(); ++i) {
         if (input[i] == '+') {
@@ -232,7 +368,9 @@ inline ParseResult parse_request(std::string_view input, const HttpLimits& limit
                                                 return ascii_lower(static_cast<char>(a)) == b;
                                             })) {
             ++host_count;
-            if (host_count > 1 || value.empty()) return error(ParseStatus::bad_request);
+            if (host_count > 1 || !is_valid_host_authority(value)) {
+                return error(ParseStatus::bad_request);
+            }
         }
         if (name.size() == 10 && std::equal(name.begin(), name.end(), "connection",
                                              [](unsigned char a, unsigned char b) {
