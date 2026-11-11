@@ -455,3 +455,50 @@ Total Test time (real) =   0.03 sec
 ```
 
 Result: exit 0; `git diff --check` emitted no output. Implementation commit: `43a0b23` (`fix: validate embedded IPv4 literals strictly`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+
+## Review Follow-Up: Aggregate Header Limit Includes Terminator
+
+Added exact-boundary assertions for a request whose complete header section is 11 bytes (`Host: x\r\n\r\n`): it is accepted with `header_bytes == 11` and rejected with `header_bytes == 10`. These regressions passed against the current parser before any implementation change. Inspection confirms the existing accounting at the `header_end` check uses `header_end - headers_start + 2`, so it includes every header line CRLF and the final blank-line CRLF; no parser implementation change was necessary or made.
+
+Focused verification command: `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure`.
+
+```text
+[ 28%] Built target colt
+[ 42%] Building CXX object CMakeFiles/colt_tests.dir/tests/http_parser_test.cpp.o
+[ 57%] Linking CXX executable colt_tests
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/1 Test #2: http_parser ......................   Passed    0.93 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) = 0.94 sec
+```
+
+Full verification command: `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`.
+
+```text
+[ 28%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: http_parser
+1/1 Test #2: http_parser ......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.02 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/3 Test #1: colt_tests .......................   Passed    0.01 sec
+    Start 2: http_parser
+2/3 Test #2: http_parser ......................   Passed    0.01 sec
+    Start 3: http_serializer
+3/3 Test #3: http_serializer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.03 sec
+```
+
+Result: exit 0; the trailing `git diff --check` emitted no output. Commit hash: to be recorded after commit.

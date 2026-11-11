@@ -110,6 +110,13 @@ TEST_CASE("parser accepts the exact configured request line header and body limi
     REQUIRE(parse_request("GET / HTTP/1.1\r\nHost: xxxxx", limits).status ==
             ParseStatus::payload_too_large);
 
+    limits = {8192, 11, 4};
+    REQUIRE(parse_request("GET / HTTP/1.1\r\nHost: x\r\n\r\n", limits).status ==
+            ParseStatus::complete);
+    limits.header_bytes = 10;
+    REQUIRE(parse_request("GET / HTTP/1.1\r\nHost: x\r\n\r\n", limits).status ==
+            ParseStatus::payload_too_large);
+
     limits = {8192, 32768, 4};
     REQUIRE(parse_request("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 4\r\n\r\ndata", limits)
                 .status == ParseStatus::complete);
