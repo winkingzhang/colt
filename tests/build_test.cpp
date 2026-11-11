@@ -5,6 +5,7 @@
 
 #include <array>
 #include <chrono>
+#include <string>
 #include <system_error>
 #include <string_view>
 #include <type_traits>
@@ -29,18 +30,29 @@ TEST_CASE("socket loopback exchanges data on an ephemeral port") {
     auto client = connect_tcp("127.0.0.1", local_port(listener));
     auto server = accept(listener);
     set_receive_timeout(server, std::chrono::seconds(5));
+    set_receive_timeout(client, std::chrono::seconds(5));
+
+    const auto receive_payload = [](Socket& socket, std::size_t expected_size) {
+        std::array<char, 32> buffer{};
+        std::string payload;
+        payload.reserve(expected_size);
+        std::size_t received = 0;
+        while (received < expected_size) {
+            const auto count = receive(socket, std::span<char>(buffer).subspan(received));
+            REQUIRE(count != 0);
+            payload.append(buffer.data(), count);
+            received += count;
+        }
+        return payload;
+    };
 
     constexpr std::string_view request = "ping from client";
     send_all(client, std::span<const char>(request.data(), request.size()));
-    std::array<char, 32> received_request{};
-    const auto request_size = receive(server, received_request);
-    REQUIRE(std::string_view(received_request.data(), request_size) == request);
+    REQUIRE(receive_payload(server, request.size()) == request);
 
     constexpr std::string_view response = "pong from server";
     send_all(server, std::span<const char>(response.data(), response.size()));
-    std::array<char, 32> received_response{};
-    const auto response_size = receive(client, received_response);
-    REQUIRE(std::string_view(received_response.data(), response_size) == response);
+    REQUIRE(receive_payload(client, response.size()) == response);
 
     shutdown(client);
     shutdown(server);
