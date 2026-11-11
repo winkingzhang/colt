@@ -201,3 +201,54 @@ Total Test time (real) =   0.09 sec
 `git diff --check` emitted no output and exited 0.
 
 Code and test commit: `421d051` (`fix: retry resolved socket addresses`).
+
+## Review Follow-Up: Listener Candidate Retry
+
+Review found `listen_tcp` stopped after a candidate's `setsockopt`, `bind`, or `listen` failure. It now captures socket creation and setup errors, closes each failed candidate, tries remaining resolved addresses, and throws the final candidate's error after exhaustion. Non-system exceptions still close the candidate and propagate immediately.
+
+Added a real-socket test that first binds an IPv6 loopback listener on an ephemeral port, then asks `listen_tcp("localhost", that_port, ...)` to bind the same port. On this host, localhost resolves the already-occupied IPv6 candidate before the available IPv4 candidate. The regression failed before the fix with `bind: Address already in use` and passes after retry.
+
+This test depends on local IPv6 availability and resolver results/order. It verifies fallback on this host but is not deterministic across all supported platforms; the earlier `connect_tcp("localhost", ...)` test is likewise resolver-dependent and is not, on its own, proof of candidate retry everywhere.
+
+### Final Verification
+
+Ran:
+
+`cmake --build build && ctest --test-dir build -R socket --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`
+
+Exact test output:
+
+```text
+[ 10%] Building CXX object CMakeFiles/colt.dir/src/platform/socket.cpp.o
+[ 20%] Linking CXX static library libcolt.a
+[ 20%] Built target colt
+[100%] Built target colt_tests
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 2: socket
+1/1 Test #2: socket ...........................   Passed    0.45 sec
+
+100% tests passed, 0 tests failed out of 1
+Total Test time (real) =   0.45 sec
+Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
+    Start 1: colt_tests
+1/7 Test #1: colt_tests .......................   Passed    0.03 sec
+    Start 2: socket
+2/7 Test #2: socket ...........................   Passed    0.03 sec
+    Start 3: http_parser
+3/7 Test #3: http_parser ......................   Passed    0.02 sec
+    Start 4: http_serializer
+4/7 Test #4: http_serializer ..................   Passed    0.02 sec
+    Start 5: context
+5/7 Test #5: context ..........................   Passed    0.01 sec
+    Start 6: routing
+6/7 Test #6: routing ..........................   Passed    0.01 sec
+    Start 7: middleware
+7/7 Test #7: middleware .......................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.13 sec
+```
+
+`git diff --check` emitted no output and exited 0.
+
+Code and test commit: `7dbdb96` (`fix: retry listener address candidates`).
