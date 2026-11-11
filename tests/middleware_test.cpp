@@ -53,6 +53,24 @@ TEST_CASE("middleware can short circuit route dispatch") {
     REQUIRE(response.body == "stopped");
 }
 
+TEST_CASE("middleware can read matched path parameters before next") {
+    colt::Application app;
+    app.use([](const colt::Request& request, colt::RequestContext&, colt::Next next) {
+        auto response = colt::Response::text(request.path_params.at("id"));
+        auto downstream = next();
+        response.body += ":" + downstream.body;
+        return response;
+    });
+    app.get("/items/:id", [](const colt::Request&, colt::RequestContext&) {
+        return colt::Response::text("handler");
+    });
+
+    colt::Request request;
+    request.method = "GET";
+    request.path = "/items/42";
+    REQUIRE(app.dispatch(request).body == "42:handler");
+}
+
 TEST_CASE("middleware and handler exceptions become 500 responses") {
     colt::Application handler_app;
     handler_app.get("/", [](const colt::Request&, colt::RequestContext&) -> colt::Response {

@@ -60,32 +60,36 @@ public:
                 return Response::text("Bad Request", 400);
             }
 
-            auto route = [&]() {
-                for (const auto& candidate : routes_) {
-                    if (candidate.method != request.method) continue;
+            const Handler* matched_handler = nullptr;
+            for (const auto& candidate : routes_) {
+                if (candidate.method != request.method) continue;
 
-                    std::vector<std::string> pattern_segments;
-                    if (!split_path(candidate.pattern, pattern_segments) ||
-                        pattern_segments.size() != path_segments.size()) {
-                        continue;
-                    }
-
-                    auto params = request.path_params;
-                    bool matched = true;
-                    for (std::size_t i = 0; i < pattern_segments.size(); ++i) {
-                        const auto& pattern_segment = pattern_segments[i];
-                        if (!pattern_segment.empty() && pattern_segment.front() == ':') {
-                            params[pattern_segment.substr(1)] = path_segments[i];
-                        } else if (pattern_segment != path_segments[i]) {
-                            matched = false;
-                            break;
-                        }
-                    }
-                    if (!matched) continue;
-
-                    request.path_params = std::move(params);
-                    return candidate.handler(request, context);
+                std::vector<std::string> pattern_segments;
+                if (!split_path(candidate.pattern, pattern_segments) ||
+                    pattern_segments.size() != path_segments.size()) {
+                    continue;
                 }
+
+                auto params = request.path_params;
+                bool matches = true;
+                for (std::size_t i = 0; i < pattern_segments.size(); ++i) {
+                    const auto& pattern_segment = pattern_segments[i];
+                    if (!pattern_segment.empty() && pattern_segment.front() == ':') {
+                        params[pattern_segment.substr(1)] = path_segments[i];
+                    } else if (pattern_segment != path_segments[i]) {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (!matches) continue;
+
+                request.path_params = std::move(params);
+                matched_handler = &candidate.handler;
+                break;
+            }
+
+            auto route = [&]() {
+                if (matched_handler) return (*matched_handler)(request, context);
                 return Response::text("Not Found", 404);
             };
 
