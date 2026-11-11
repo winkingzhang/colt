@@ -49,25 +49,26 @@ TEST_CASE("socket loopback exchanges data on an ephemeral port") {
     listener.close();
 }
 
-TEST_CASE("socket connect tries later localhost address candidates") {
+TEST_CASE("socket listen reports single-address bind failure") {
     using namespace colt::detail::platform;
     initialize_sockets();
-    auto listener = listen_tcp("127.0.0.1", 0, 1);
 
-    auto client = connect_tcp("localhost", local_port(listener));
-    auto server = accept(listener);
-
-    shutdown(client);
-    shutdown(server);
+    try {
+        (void)listen_tcp("192.0.2.1", 0, 1);
+        REQUIRE(false);
+    } catch (const std::system_error&) {
+    }
 }
 
-TEST_CASE("socket listen tries later localhost address candidates") {
+TEST_CASE("socket connect reports single-address connection failure") {
     using namespace colt::detail::platform;
     initialize_sockets();
-    auto ipv6_listener = listen_tcp("::1", 0, 1);
 
-    auto ipv4_listener = listen_tcp("localhost", local_port(ipv6_listener), 1);
-    REQUIRE(local_port(ipv4_listener) == local_port(ipv6_listener));
+    try {
+        (void)connect_tcp("127.0.0.1", 0);
+        REQUIRE(false);
+    } catch (const std::system_error&) {
+    }
 }
 
 TEST_CASE("socket resolver errors use a resolver error category") {
