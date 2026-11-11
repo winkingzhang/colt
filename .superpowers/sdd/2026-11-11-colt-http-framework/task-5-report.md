@@ -510,4 +510,4 @@ Total Test time (real) =   0.08 sec
 `git diff --check` emitted no output and exited 0.
 
 Test commit: `be2b989` (`test: avoid flaky loopback shutdown`).
-Report commit: to be recorded after commit.
+Report commit: `a9452cf` (`docs: record loopback shutdown verification`).
