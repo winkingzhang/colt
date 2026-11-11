@@ -409,4 +409,4 @@ Total Test time (real) =   0.07 sec
 `git diff --check` emitted no output and exited 0.
 
 Test commit: `3bd65a7` (`test: append newly received socket bytes`).
-Report commit: to be recorded after commit.
+Report commit: `2aa8e77` (`docs: record socket byte accumulation fix`).
