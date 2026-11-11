@@ -57,8 +57,6 @@ TEST_CASE("socket loopback exchanges data on an ephemeral port") {
     send_all(server, std::span<const char>(response.data(), response.size()));
     REQUIRE(receive_payload(client, response.size()) == response);
 
-    shutdown(client);
-    shutdown(server);
     client.close();
     server.close();
     listener.close();
