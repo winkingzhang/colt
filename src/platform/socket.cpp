@@ -31,6 +31,20 @@ constexpr auto invalid_handle = static_cast<std::uintptr_t>(-1);
 using NativeSocket = SOCKET;
 using SocketLength = int;
 
+const std::error_category& addrinfo_category() noexcept {
+    class Category final : public std::error_category {
+    public:
+        const char* name() const noexcept override { return "getaddrinfo"; }
+        std::string message(int error) const override { return gai_strerrorA(error); }
+    };
+    static const Category category;
+    return category;
+}
+
+std::error_code last_socket_error() {
+    return {WSAGetLastError(), std::system_category()};
+}
+
 NativeSocket native(std::uintptr_t handle) {
     return static_cast<NativeSocket>(handle);
 }
@@ -60,6 +74,20 @@ void configure_socket(NativeSocket socket) {
 #else
 using NativeSocket = int;
 using SocketLength = socklen_t;
+
+const std::error_category& addrinfo_category() noexcept {
+    class Category final : public std::error_category {
+    public:
+        const char* name() const noexcept override { return "getaddrinfo"; }
+        std::string message(int error) const override { return gai_strerror(error); }
+    };
+    static const Category category;
+    return category;
+}
+
+std::error_code last_socket_error() {
+    return {errno, std::generic_category()};
+}
 
 NativeSocket native(std::uintptr_t handle) {
     return static_cast<NativeSocket>(handle);
@@ -120,11 +148,7 @@ AddressList resolve(std::string_view address, std::uint16_t port, int flags) {
     AddressList list;
     const int result = getaddrinfo(host.c_str(), service.c_str(), &hints, &list.value);
     if (result != 0) {
-#ifdef _WIN32
-        throw std::system_error(std::error_code(result, std::system_category()), "getaddrinfo");
-#else
-        throw std::system_error(std::error_code(result, std::generic_category()), "getaddrinfo");
-#endif
+        throw std::system_error(std::error_code(result, addrinfo_category()), "getaddrinfo");
     }
     return list;
 }
@@ -302,13 +326,20 @@ void shutdown(Socket& socket) {
 Socket connect_tcp(std::string_view address, std::uint16_t port) {
     initialize_sockets();
     auto addresses = resolve(address, port, 0);
+    std::error_code last_error;
 
     for (auto* entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
         const auto handle = ::socket(entry->ai_family, entry->ai_socktype, entry->ai_protocol);
 #ifdef _WIN32
-        if (handle == INVALID_SOCKET) continue;
+        if (handle == INVALID_SOCKET) {
+            last_error = last_socket_error();
+            continue;
+        }
 #else
-        if (handle < 0) continue;
+        if (handle < 0) {
+            last_error = last_socket_error();
+            continue;
+        }
 #endif
         try {
             configure_socket(handle);
@@ -316,13 +347,16 @@ Socket connect_tcp(std::string_view address, std::uint16_t port) {
                           static_cast<SocketLength>(entry->ai_addrlen)) == 0) {
                 return Socket(static_cast<std::uintptr_t>(handle));
             }
-            throw_socket_error("connect");
-        } catch (...) {
+            last_error = last_socket_error();
+        } catch (const std::system_error& error) {
+            last_error = error.code();
             close_native(handle);
-            throw;
+            continue;
         }
+        close_native(handle);
     }
-    throw_socket_error("socket");
+    if (last_error) throw std::system_error(last_error, "connect");
+    throw std::system_error(std::make_error_code(std::errc::address_not_available), "connect");
 }
 
 std::uint16_t local_port(const Socket& socket) {

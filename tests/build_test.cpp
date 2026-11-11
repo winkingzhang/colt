@@ -5,6 +5,7 @@
 
 #include <array>
 #include <chrono>
+#include <system_error>
 #include <string_view>
 #include <type_traits>
 
@@ -46,4 +47,28 @@ TEST_CASE("socket loopback exchanges data on an ephemeral port") {
     client.close();
     server.close();
     listener.close();
+}
+
+TEST_CASE("socket connect tries later localhost address candidates") {
+    using namespace colt::detail::platform;
+    initialize_sockets();
+    auto listener = listen_tcp("127.0.0.1", 0, 1);
+
+    auto client = connect_tcp("localhost", local_port(listener));
+    auto server = accept(listener);
+
+    shutdown(client);
+    shutdown(server);
+}
+
+TEST_CASE("socket resolver errors use a resolver error category") {
+    using namespace colt::detail::platform;
+    initialize_sockets();
+
+    try {
+        (void)connect_tcp("invalid host name colt-test.invalid", 80);
+        REQUIRE(false);
+    } catch (const std::system_error& error) {
+        REQUIRE(std::string_view(error.code().category().name()) == "getaddrinfo");
+    }
 }
