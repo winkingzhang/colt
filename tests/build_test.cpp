@@ -3,6 +3,7 @@
 #include <colt/http.hpp>
 #include <platform/socket.hpp>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <string>
@@ -38,9 +39,11 @@ TEST_CASE("socket loopback exchanges data on an ephemeral port") {
         payload.reserve(expected_size);
         std::size_t received = 0;
         while (received < expected_size) {
-            const auto count = receive(socket, std::span<char>(buffer).subspan(received));
+            const auto chunk_size = std::min<std::size_t>(3, expected_size - received);
+            const auto count = receive(
+                socket, std::span<char>(buffer).subspan(received, chunk_size));
             REQUIRE(count != 0);
-            payload.append(buffer.data(), count);
+            payload.append(buffer.data() + received, count);
             received += count;
         }
         return payload;
