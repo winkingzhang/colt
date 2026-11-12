@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(colt LANGUAGES CXX)
 
 option(COLT_BUILD_TESTS "Build Colt tests" ON)
+option(COLT_BUILD_EXAMPLES "Build Colt examples" ON)
 
 find_package(Threads REQUIRED)
 
@@ -46,4 +47,9 @@ if(COLT_BUILD_TESTS)
     add_test(NAME routing COMMAND colt_tests routing)
     add_test(NAME middleware COMMAND colt_tests middleware)
     add_test(NAME server COMMAND colt_tests server)
+endif()
+
+if(COLT_BUILD_EXAMPLES)
+    add_executable(colt_hello examples/hello.cpp)
+    target_link_libraries(colt_hello PRIVATE Colt::colt)
 endif()

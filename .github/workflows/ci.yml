@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC / Linux
+            os: ubuntu-latest
+            compiler: g++
+          - name: Clang / macOS
+            os: macos-latest
+            compiler: clang++
+          - name: MSVC / Windows
+            os: windows-latest
+            compiler: cl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake -S . -B build -DCOLT_BUILD_TESTS=ON -DCOLT_BUILD_EXAMPLES=ON
+          else
+            cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} -DCOLT_BUILD_TESTS=ON -DCOLT_BUILD_EXAMPLES=ON
+          fi
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Example loopback smoke test
+        run: >-
+          python tests/example_smoke.py
+          ${{ runner.os == 'Windows' && 'build/Release/colt_hello.exe' || 'build/colt_hello' }}
