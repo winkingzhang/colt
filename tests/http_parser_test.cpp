@@ -147,6 +147,17 @@ TEST_CASE("parser rejects malformed request lines") {
             ParseStatus::bad_request);
 }
 
+TEST_CASE("parser rejects URI-invalid request-target characters") {
+    for (const std::string_view target : {
+             "/bad\"target", "/bad\\target", "/caf\xc3\xa9", "/bad[brackets]"}) {
+        const std::string request = "GET " + std::string(target) +
+                                    " HTTP/1.1\r\nHost: x\r\n\r\n";
+        const auto result = parse_request(request);
+        REQUIRE(result.status == ParseStatus::bad_request);
+        REQUIRE(result.close_connection);
+    }
+}
+
 TEST_CASE("parser rejects duplicate and conflicting content lengths and closes") {
     const auto same = parse_request(
         "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\ncontent-length: 0\r\n\r\n");

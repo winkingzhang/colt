@@ -25,6 +25,7 @@ if(COLT_BUILD_TESTS)
         tests/context_test.cpp
         tests/routing_test.cpp
         tests/middleware_test.cpp
+        tests/server_test.cpp
     )
     target_include_directories(colt_tests PRIVATE src)
     target_link_libraries(colt_tests PRIVATE Colt::colt Threads::Threads)
@@ -35,4 +36,5 @@ if(COLT_BUILD_TESTS)
     add_test(NAME context COMMAND colt_tests context)
     add_test(NAME routing COMMAND colt_tests routing)
     add_test(NAME middleware COMMAND colt_tests middleware)
+    add_test(NAME server COMMAND colt_tests server)
 endif()

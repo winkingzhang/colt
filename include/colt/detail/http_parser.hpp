@@ -218,6 +218,17 @@ inline bool decode_component(std::string_view input, std::string& output) {
     return true;
 }
 
+inline bool is_valid_request_target(std::string_view target) {
+    for (const unsigned char ch : target) {
+        if (ch <= 0x20 || ch >= 0x7f) return false;
+        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+            (ch >= '0' && ch <= '9')) continue;
+        constexpr std::string_view allowed = "/?%:@!$&'()*+,;=-._~";
+        if (allowed.find(static_cast<char>(ch)) == std::string_view::npos) return false;
+    }
+    return true;
+}
+
 inline bool parse_query(std::string_view query,
                         std::unordered_map<std::string, std::string>& params) {
     while (!query.empty()) {
@@ -308,11 +319,8 @@ inline ParseResult parse_request(std::string_view input, const HttpLimits& limit
     request.method = request_line.substr(0, first_space);
     request.target = request_line.substr(first_space + 1, second_space - first_space - 1);
     if (request.target.empty() || request.target.front() != '/' ||
-        request.target.find('#') != std::string::npos) {
+        request.target.find('#') != std::string::npos || !is_valid_request_target(request.target)) {
         return error(ParseStatus::bad_request);
-    }
-    for (const unsigned char ch : request.target) {
-        if (ch <= 0x20 || ch == 0x7f) return error(ParseStatus::bad_request);
     }
     const auto question = request.target.find('?');
     request.path = request.target.substr(0, question);
