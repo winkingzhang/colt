@@ -21,6 +21,7 @@
 #include <cerrno>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -331,6 +332,27 @@ namespace colt::detail::platform {
         if (::setsockopt(native(socket.handle_), SOL_SOCKET, SO_RCVTIMEO, &value, sizeof(value)) < 0) {
             throw_socket_error("setsockopt(SO_RCVTIMEO)");
         }
+#endif
+    }
+
+    bool has_pending_connection(Socket &listener) {
+        ensure_valid(listener);
+#ifdef _WIN32
+        fd_set readable;
+        FD_ZERO(&readable);
+        FD_SET(native(listener.handle_), &readable);
+        timeval timeout{0, 0};
+        const auto ready = ::select(0, &readable, nullptr, nullptr, &timeout);
+        if (ready == SOCKET_ERROR) throw_socket_error("select");
+        return ready > 0;
+#else
+        pollfd descriptor{native(listener.handle_), POLLIN, 0};
+        int ready;
+        do {
+            ready = ::poll(&descriptor, 1, 0);
+        } while (ready < 0 && errno == EINTR);
+        if (ready < 0) throw_socket_error("poll");
+        return ready > 0;
 #endif
     }
 

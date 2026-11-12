@@ -192,14 +192,16 @@ namespace colt {
                 if (!listener_ && !accept_thread_.joinable()) return;
                 stopping_.store(true);
                 if (listener_ && *listener_) {
-                    try { detail::platform::shutdown(*listener_); } catch (...) {
-                    }
+                    // The wake connection queues behind earlier pending ones, so the
+                    // accept thread can drain and close them cleanly afterwards.
                     try {
                         auto address = bound_address_;
                         if (address == "0.0.0.0") address = "127.0.0.1";
                         else if (address == "::") address = "::1";
                         auto wake = detail::platform::connect_tcp(address, bound_port_);
                     } catch (...) {
+                        try { detail::platform::shutdown(*listener_); } catch (...) {
+                        }
                     }
                 }
                 for (const auto &socket: active_sockets_) {
@@ -241,6 +243,17 @@ namespace colt {
         }
 
         void accept_connections() noexcept {
+            accept_loop();
+            if (!stopping_.load()) return;
+            try {
+                while (detail::platform::has_pending_connection(*listener_)) {
+                    auto pending = detail::platform::accept(*listener_);
+                }
+            } catch (...) {
+            }
+        }
+
+        void accept_loop() noexcept {
             while (!stopping_.load()) {
                 Socket accepted;
                 try {

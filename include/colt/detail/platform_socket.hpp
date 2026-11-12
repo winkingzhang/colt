@@ -35,6 +35,8 @@ namespace colt::detail::platform {
 
         friend Socket accept(Socket &);
 
+        friend bool has_pending_connection(Socket &);
+
         friend std::size_t receive(Socket &, std::span<char>);
 
         friend void send_all(Socket &, std::span<const char>);
@@ -55,6 +57,8 @@ namespace colt::detail::platform {
     Socket listen_tcp(std::string_view address, std::uint16_t port, int backlog);
 
     Socket accept(Socket &listener);
+
+    bool has_pending_connection(Socket &listener);
 
     std::size_t receive(Socket &socket, std::span<char> buffer);
 
