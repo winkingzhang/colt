@@ -111,4 +111,4 @@ and compiled/linked the socket layer without tests or examples.
 
 ## Commit
 
-Task 7 implementation commit: recorded after commit creation.
+Task 7 implementation commit: `928d4a4` (`feat: add public Colt example and CI matrix`).
