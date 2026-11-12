@@ -187,6 +187,47 @@ TEST_CASE("server closes when a response requests connection close") {
     app.stop();
 }
 
+TEST_CASE("server replaces informational handler responses with a final 500") {
+    colt::Application app;
+    for (const int status : {100, 101, 199}) {
+        app.get("/" + std::to_string(status), [status](const colt::Request&,
+                                                       colt::RequestContext&) {
+            return colt::Response::text("unsupported", status);
+        });
+    }
+    app.listen("127.0.0.1", 0);
+
+    for (const int status : {100, 101, 199}) {
+        auto socket = connect_to(app);
+        std::string buffered;
+        send_request(socket, "GET /" + std::to_string(status) +
+                                 " HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        const auto response = read_response(socket, buffered);
+        REQUIRE(response.find("HTTP/1.1 500 Internal Server Error\r\n") == 0);
+        REQUIRE(response.ends_with("Internal Server Error"));
+        REQUIRE(wait_for_close(socket));
+    }
+    app.stop();
+}
+
+TEST_CASE("server honors close in any duplicate response Connection field") {
+    colt::Application app;
+    app.get("/", [](const colt::Request&, colt::RequestContext&) {
+        auto response = colt::Response::text("done");
+        response.headers.add("Connection", "keep-alive");
+        response.headers.add("connection", "upgrade, CLOSE");
+        return response;
+    });
+    app.listen("127.0.0.1", 0);
+
+    auto socket = connect_to(app);
+    std::string buffered;
+    send_request(socket, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    REQUIRE(read_response(socket, buffered).ends_with("done"));
+    REQUIRE(wait_for_close(socket));
+    app.stop();
+}
+
 TEST_CASE("server applies configured request limits") {
     colt::Application app;
     colt::ServerSettings settings;

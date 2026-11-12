@@ -141,7 +141,11 @@ public:
                 return response;
             };
 
-            return run_middleware(0);
+            auto response = run_middleware(0);
+            if (response.status >= 100 && response.status < 200) {
+                return Response::text("Internal Server Error", 500);
+            }
+            return response;
         } catch (...) {
             return Response::text("Internal Server Error", 500);
         }
@@ -308,8 +312,14 @@ private:
                 RequestContext context{registry_};
                 auto response = dispatch(std::move(parsed.request), context);
                 bool response_close = false;
-                if (const auto connection = response.headers.get("Connection")) {
-                    std::string value(*connection);
+                for (const auto& [name, raw_value] : response.headers) {
+                    if (name.size() != 10 ||
+                        !std::equal(name.begin(), name.end(), "connection",
+                                    [](unsigned char a, unsigned char b) {
+                                        if (a >= 'A' && a <= 'Z') a += 'a' - 'A';
+                                        return a == b;
+                                    })) continue;
+                    std::string value(raw_value);
                     std::transform(value.begin(), value.end(), value.begin(), [](char ch) {
                         if (ch >= 'A' && ch <= 'Z') return static_cast<char>(ch + ('a' - 'A'));
                         return ch;
@@ -329,6 +339,7 @@ private:
                         if (comma == std::string::npos) break;
                         start = comma + 1;
                     }
+                    if (response_close) break;
                 }
                 const bool error_requires_close = response.status == 400 || response.status == 413 ||
                                                   response.status >= 500;

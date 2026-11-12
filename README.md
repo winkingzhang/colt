@@ -87,6 +87,6 @@ Colt currently supports HTTP/1.1 over plain TCP, including sequential
 keep-alive requests and bounded request bodies framed with `Content-Length`.
 It does not support TLS/HTTPS, chunked request bodies, protocol upgrades,
 WebSockets, JSON parsing, asynchronous handlers, static-file hosting, or
-multipart parsing. Unsupported transfer encodings are rejected. Request-target
-validation is not yet a complete URI-character validation; applications should
-not treat accepted targets as proof of strict URI conformance.
+multipart parsing. Unsupported transfer encodings are rejected. Raw request-target
+characters must be permitted URI ASCII characters; quotes, backslashes, spaces,
+and non-ASCII bytes are rejected, and percent escapes must be well-formed.
