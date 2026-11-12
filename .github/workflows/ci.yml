@@ -23,7 +23,7 @@ jobs:
             compiler: cl
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
