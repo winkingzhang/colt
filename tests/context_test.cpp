@@ -18,11 +18,11 @@ namespace {
     };
 } // namespace
 
-TEST_CASE (
+TEST_CASE(
 
-"context shares singleton instances across contexts"
-)
- {
+
+    "context shares singleton instances across contexts"
+) {
     colt::ServiceRegistry registry;
     registry.add_singleton<SingletonService>([] {
         return std::make_shared<SingletonService>();
@@ -33,11 +33,11 @@ TEST_CASE (
     REQUIRE(&first.get<SingletonService>() == &second.get<SingletonService>());
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"context constructs a singleton once under concurrent resolution"
-)
- {
+
+    "context constructs a singleton once under concurrent resolution"
+) {
     colt::ServiceRegistry registry;
     std::atomic<int> constructions{0};
     registry.add_singleton<SingletonService>([&] {
@@ -52,7 +52,7 @@ TEST_CASE (
         contexts.push_back(std::make_unique<colt::RequestContext>(registry));
     }
 
-    std::vector<SingletonService*> instances(thread_count);
+    std::vector<SingletonService *> instances(thread_count);
     std::vector<std::thread> threads;
     threads.reserve(thread_count);
     for (std::size_t i = 0; i < thread_count; ++i) {
@@ -60,17 +60,18 @@ TEST_CASE (
             instances[i] = &contexts[i]->get<SingletonService>();
         });
     }
-    for (auto& thread : threads) thread.join();
+    for (auto &thread: threads) thread.join();
 
     REQUIRE(constructions.load(std::memory_order_relaxed) == 1);
-    for (const auto* instance : instances) REQUIRE(instance == instances.front());
+    for (const auto *instance: instances)
+        REQUIRE(instance == instances.front());
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"context caches request instances within each context only"
-)
- {
+
+    "context caches request instances within each context only"
+) {
     colt::ServiceRegistry registry;
     registry.add_request<RequestService>([] {
         return std::make_shared<RequestService>();
@@ -82,18 +83,18 @@ TEST_CASE (
     REQUIRE(&first.get<RequestService>() != &second.get<RequestService>());
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"context rejects missing and duplicate service registrations"
-)
- {
+
+    "context rejects missing and duplicate service registrations"
+) {
     colt::ServiceRegistry registry;
     colt::RequestContext context{registry};
 
     bool missing_rejected = false;
     try {
-        (void)context.get<SingletonService>();
-    } catch (const std::out_of_range&) {
+        (void) context.get<SingletonService>();
+    } catch (const std::out_of_range &) {
         missing_rejected = true;
     }
     REQUIRE(missing_rejected);
@@ -106,7 +107,7 @@ TEST_CASE (
         registry.add_request<SingletonService>([] {
             return std::make_shared<SingletonService>();
         });
-    } catch (const std::logic_error&) {
+    } catch (const std::logic_error &) {
         duplicate_rejected = true;
     }
     REQUIRE(duplicate_rejected);

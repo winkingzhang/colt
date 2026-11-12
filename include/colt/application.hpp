@@ -159,8 +159,9 @@ namespace colt {
             auto listener = std::make_unique<detail::platform::Socket>(
                 detail::platform::listen_tcp(address, port, 128));
             const auto bound_port = detail::platform::local_port(*listener);
+            const auto bound_address = detail::platform::local_address(*listener);
             settings_ = settings;
-            listen_address_ = address;
+            bound_address_ = bound_address;
             bound_port_ = bound_port;
             stopping_.store(false);
             listener_ = std::move(listener);
@@ -169,6 +170,7 @@ namespace colt {
             } catch (...) {
                 stopping_.store(true);
                 listener_.reset();
+                bound_address_.clear();
                 bound_port_ = 0;
                 throw;
             }
@@ -177,6 +179,11 @@ namespace colt {
         [[nodiscard]] std::uint16_t bound_port() const {
             std::lock_guard lock(lifecycle_mutex_);
             return bound_port_;
+        }
+
+        [[nodiscard]] std::string bound_address() const {
+            std::lock_guard lock(lifecycle_mutex_);
+            return bound_address_;
         }
 
         void stop() noexcept {
@@ -188,7 +195,7 @@ namespace colt {
                     try { detail::platform::shutdown(*listener_); } catch (...) {
                     }
                     try {
-                        auto address = listen_address_;
+                        auto address = bound_address_;
                         if (address == "0.0.0.0") address = "127.0.0.1";
                         else if (address == "::") address = "::1";
                         auto wake = detail::platform::connect_tcp(address, bound_port_);
@@ -210,6 +217,7 @@ namespace colt {
             workers_.clear();
             active_sockets_.clear();
             listener_.reset();
+            bound_address_.clear();
             bound_port_ = 0;
         }
 
@@ -421,7 +429,7 @@ namespace colt {
         std::unique_ptr<Socket> listener_;
         std::uint16_t bound_port_{};
         ServerSettings settings_{};
-        std::string listen_address_;
+        std::string bound_address_;
         std::vector<std::shared_ptr<Socket>> active_sockets_;
         std::thread accept_thread_;
         std::vector<Worker> workers_;

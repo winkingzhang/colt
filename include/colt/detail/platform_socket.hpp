@@ -2,7 +2,9 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace colt::detail::platform {
@@ -44,6 +46,8 @@ namespace colt::detail::platform {
         friend Socket connect_tcp(std::string_view, std::uint16_t);
 
         friend std::uint16_t local_port(const Socket &);
+
+        friend std::string local_address(const Socket &);
     };
 
     void initialize_sockets();
@@ -63,4 +67,6 @@ namespace colt::detail::platform {
     Socket connect_tcp(std::string_view address, std::uint16_t port);
 
     std::uint16_t local_port(const Socket &socket);
+
+    std::string local_address(const Socket &socket);
 } // namespace colt::detail::platform

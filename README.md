@@ -26,8 +26,8 @@ generator. The example listens on `127.0.0.1:8080`; visit
 `http://127.0.0.1:8080/hello/Colt` to receive `Hello, Colt!`. Press Enter in
 the server terminal to call `Application::stop()` and shut it down.
 
-The example shows the public `Colt::colt` link target, a `GET` route, a
-`:name` path parameter, middleware wrapping `next()`, singleton and
+The example shows the public `Colt::colt` link target, a basic `GET /` route,
+the `/hello/:name` path-parameter route, middleware wrapping `next()`, singleton and
 request-scoped dependency registration/resolution, and `listen()`/`stop()`.
 
 ## Consumer CMake

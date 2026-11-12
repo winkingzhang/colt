@@ -11,21 +11,21 @@
 #include <string_view>
 #include <type_traits>
 
-TEST_CASE (
+TEST_CASE(
 
-"default response has status 200 and empty body"
-)
- {
+
+    "default response has status 200 and empty body"
+) {
     const colt::Response response;
     REQUIRE(response.status == 200);
     REQUIRE(response.body.empty());
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"socket loopback exchanges data on an ephemeral port"
-)
- {
+
+    "socket loopback exchanges data on an ephemeral port"
+) {
     using colt::detail::platform::Socket;
 
     static_assert(!std::is_copy_constructible_v<Socket>);
@@ -41,7 +41,7 @@ TEST_CASE (
     set_receive_timeout(server, std::chrono::seconds(5));
     set_receive_timeout(client, std::chrono::seconds(5));
 
-    const auto receive_payload = [](Socket& socket, std::size_t expected_size) {
+    const auto receive_payload = [](Socket &socket, std::size_t expected_size) {
         std::array<char, 32> buffer{};
         std::string payload;
         payload.reserve(expected_size);
@@ -70,48 +70,70 @@ TEST_CASE (
     listener.close();
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"socket listen reports single-address bind failure"
-)
- {
+
+    "socket exposes its selected numeric listener address"
+) {
+    using namespace colt::detail::platform;
+    initialize_sockets();
+
+    auto listener = listen_tcp("localhost", 0, 1);
+    const auto address = local_address(listener);
+    REQUIRE(address != "localhost");
+    REQUIRE(!address.empty());
+
+    auto client = connect_tcp(address, local_port(listener));
+    auto server = accept(listener);
+    set_receive_timeout(server, std::chrono::seconds(5));
+    send_all(client, std::span<const char>("wake", 4));
+    std::array<char, 4> bytes{};
+    REQUIRE(receive(server, bytes) == bytes.size());
+    REQUIRE(std::string_view(bytes.data(), bytes.size()) == "wake");
+}
+
+TEST_CASE(
+
+
+    "socket listen reports single-address bind failure"
+) {
     using namespace colt::detail::platform;
     initialize_sockets();
 
     try {
-        (void)listen_tcp("192.0.2.1", 0, 1);
+        (void) listen_tcp("192.0.2.1", 0, 1);
         REQUIRE(false);
-    } catch (const std::system_error&) {
+    } catch (const std::system_error &) {
     }
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"socket connect reports single-address connection failure"
-)
- {
+
+    "socket connect reports single-address connection failure"
+) {
     using namespace colt::detail::platform;
     initialize_sockets();
 
     try {
-        (void)connect_tcp("127.0.0.1", 0);
+        (void) connect_tcp("127.0.0.1", 0);
         REQUIRE(false);
-    } catch (const std::system_error&) {
+    } catch (const std::system_error &) {
     }
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"socket resolver errors use a resolver error category"
-)
- {
+
+    "socket resolver errors use a resolver error category"
+) {
     using namespace colt::detail::platform;
     initialize_sockets();
 
     try {
-        (void)connect_tcp("invalid host name colt-test.invalid", 80);
+        (void) connect_tcp("invalid host name colt-test.invalid", 80);
         REQUIRE(false);
-    } catch (const std::system_error& error) {
+    } catch (const std::system_error &error) {
         REQUIRE(std::string_view(error.code().category().name()) == "getaddrinfo");
     }
 }

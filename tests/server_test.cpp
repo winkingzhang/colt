@@ -68,6 +68,7 @@ namespace {
 
 TEST_CASE(
 
+
     "server settings expose required defaults"
 ) {
     const colt::ServerSettings settings;
@@ -79,6 +80,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
+
 
     "server routes requests and returns 404 for unmatched paths"
 ) {
@@ -104,6 +106,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
+
 
     "server returns 400 for malformed requests and 500 for handler exceptions"
 ) {
@@ -133,6 +136,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
+
 
     "server creates request contexts per keep-alive request and shares singletons"
 ) {
@@ -169,6 +173,7 @@ TEST_CASE(
 
 TEST_CASE(
 
+
     "server closes idle keep-alive connections after configured timeout"
 ) {
     colt::Application app;
@@ -189,6 +194,7 @@ TEST_CASE(
 
 TEST_CASE(
 
+
     "server closes when a response requests connection close"
 ) {
     colt::Application app;
@@ -208,6 +214,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
+
 
     "server replaces informational handler responses with a final 500"
 ) {
@@ -235,6 +242,7 @@ TEST_CASE(
 
 TEST_CASE(
 
+
     "server honors close in any duplicate response Connection field"
 ) {
     colt::Application app;
@@ -256,6 +264,7 @@ TEST_CASE(
 
 TEST_CASE(
 
+
     "server applies configured request limits"
 ) {
     colt::Application app;
@@ -273,6 +282,7 @@ TEST_CASE(
 
 TEST_CASE(
 
+
     "server rejects connections when maximum is zero"
 ) {
     colt::Application app;
@@ -286,6 +296,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
+
 
     "server enforces the active connection limit"
 ) {
@@ -302,6 +313,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
+
 
     "server admits a new connection after a worker exits"
 ) {
@@ -327,12 +339,26 @@ TEST_CASE(
 
 TEST_CASE(
 
+
     "server stop interrupts a worker blocked reading a request"
 ) {
     colt::Application app;
     app.listen("127.0.0.1", 0);
     auto socket = connect_to(app);
     app.stop();
+    app.stop();
+    REQUIRE(wait_for_close(socket));
+}
+
+TEST_CASE(
+
+
+    "server stop wakes the selected listener address after fallback"
+) {
+    colt::Application app;
+    app.listen("localhost", 0);
+    auto socket = colt::detail::platform::connect_tcp(app.bound_address(), app.bound_port());
+    set_test_timeout(socket);
     app.stop();
     REQUIRE(wait_for_close(socket));
 }

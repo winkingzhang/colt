@@ -1,6 +1,7 @@
 #include "socket.hpp"
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <limits>
 #include <stdexcept>
@@ -80,8 +81,8 @@ namespace colt::detail::platform {
         const std::error_category &addrinfo_category() noexcept {
             class Category final : public std::error_category {
             public:
-                const char * name() const noexcept override { return "getaddrinfo"; }
-                std::string message(int error) const override { return gai_strerror(error); }
+                [[nodiscard]] const char * name() const noexcept override { return "getaddrinfo"; }
+                [[nodiscard]] std::string message(int error) const override { return gai_strerror(error); }
             };
             static const Category category;
             return category;
@@ -381,7 +382,7 @@ namespace colt::detail::platform {
     std::uint16_t local_port(const Socket &socket) {
         ensure_valid(socket);
         sockaddr_storage address{};
-        SocketLength length = static_cast<SocketLength>(sizeof(address));
+        auto length = static_cast<SocketLength>(sizeof(address));
         if (::getsockname(native(socket.handle_), reinterpret_cast<sockaddr *>(&address), &length) < 0) {
             throw_socket_error("getsockname");
         }
@@ -392,5 +393,23 @@ namespace colt::detail::platform {
             return ntohs(reinterpret_cast<const sockaddr_in6 *>(&address)->sin6_port);
         }
         throw std::system_error(std::make_error_code(std::errc::address_family_not_supported));
+    }
+
+    std::string local_address(const Socket &socket) {
+        ensure_valid(socket);
+        sockaddr_storage address{};
+        auto length = static_cast<SocketLength>(sizeof(address));
+        if (::getsockname(native(socket.handle_), reinterpret_cast<sockaddr *>(&address), &length) < 0) {
+            throw_socket_error("getsockname");
+        }
+
+        std::array<char, NI_MAXHOST> host{};
+        const int result = getnameinfo(reinterpret_cast<const sockaddr *>(&address), length,
+                                       host.data(), static_cast<SocketLength>(host.size()),
+                                       nullptr, 0, NI_NUMERICHOST);
+        if (result != 0) {
+            throw std::system_error(std::error_code(result, addrinfo_category()), "getnameinfo");
+        }
+        return host.data();
     }
 } // namespace colt::detail::platform

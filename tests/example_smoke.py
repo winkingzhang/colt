@@ -13,14 +13,22 @@ def main():
             if process.poll() is not None:
                 raise RuntimeError(f"colt_hello exited with status {process.returncode}")
             try:
-                with urllib.request.urlopen(
-                    "http://127.0.0.1:8080/hello/Colt", timeout=1
-                ) as response:
-                    if response.status != 200:
-                        raise AssertionError(f"unexpected HTTP status: {response.status}")
-                    body = response.read().decode("utf-8")
-                if body != "Hello, Colt!":
-                    raise AssertionError(f"unexpected response body: {body!r}")
+                for path, expected_body in (
+                    ("/", "Hello from Colt!"),
+                    ("/hello/Colt", "Hello, Colt!"),
+                ):
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:8080{path}", timeout=1
+                    ) as response:
+                        if response.status != 200:
+                            raise AssertionError(
+                                f"unexpected HTTP status for {path}: {response.status}"
+                            )
+                        body = response.read().decode("utf-8")
+                    if body != expected_body:
+                        raise AssertionError(
+                            f"unexpected response body for {path}: {body!r}"
+                        )
                 return
             except urllib.error.HTTPError as error:
                 raise AssertionError(f"unexpected HTTP status: {error.code}") from error

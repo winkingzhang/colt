@@ -22,6 +22,10 @@ int main() {
         return response;
     });
 
+    app.get("/", [](const colt::Request &, colt::RequestContext &) {
+        return colt::Response::text("Hello from Colt!");
+    });
+
     app.get("/hello/:name", [](const colt::Request &request, colt::RequestContext &context) {
         const auto &greeter = context.get<Greeter>();
         (void) context.get<RequestMarker>();

@@ -15,16 +15,16 @@ namespace {
     };
 } // namespace
 
-TEST_CASE (
+TEST_CASE(
 
-"routing matches exact HTTP method and literal path"
-)
- {
+
+    "routing matches exact HTTP method and literal path"
+) {
     colt::Application app;
-    app.get("/items", [](const colt::Request&, colt::RequestContext&) {
+    app.get("/items", [](const colt::Request &, colt::RequestContext &) {
         return colt::Response::text("get");
     });
-    app.post("/items", [](const colt::Request&, colt::RequestContext&) {
+    app.post("/items", [](const colt::Request &, colt::RequestContext &) {
         return colt::Response::text("post");
     });
 
@@ -39,14 +39,14 @@ TEST_CASE (
     REQUIRE(app.dispatch(post).body == "post");
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"routing extracts percent-decoded path parameters"
-)
- {
+
+    "routing extracts percent-decoded path parameters"
+) {
     colt::Application app;
-    app.get("/users/:user_id/orders/:order", [](const colt::Request& request,
-                                                  colt::RequestContext&) {
+    app.get("/users/:user_id/orders/:order", [](const colt::Request &request,
+                                                colt::RequestContext &) {
         return colt::Response::text(request.path_params.at("user_id") + ":" +
                                     request.path_params.at("order"));
     });
@@ -57,16 +57,16 @@ TEST_CASE (
     REQUIRE(app.dispatch(request).body == "al ice:42");
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"routing keeps encoded slashes inside a parameter segment"
-)
- {
+
+    "routing keeps encoded slashes inside a parameter segment"
+) {
     colt::Application app;
-    app.get("/files/:name", [](const colt::Request& request, colt::RequestContext&) {
+    app.get("/files/:name", [](const colt::Request &request, colt::RequestContext &) {
         return colt::Response::text(request.path_params.at("name"));
     });
-    app.get("/files/a/b", [](const colt::Request&, colt::RequestContext&) {
+    app.get("/files/a/b", [](const colt::Request &, colt::RequestContext &) {
         return colt::Response::text("three segments");
     });
 
@@ -76,13 +76,13 @@ TEST_CASE (
     REQUIRE(app.dispatch(request).body == "a/b");
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"routing returns 404 for wrong method or segment count"
-)
- {
+
+    "routing returns 404 for wrong method or segment count"
+) {
     colt::Application app;
-    app.get("/items/:id", [](const colt::Request&, colt::RequestContext&) {
+    app.get("/items/:id", [](const colt::Request &, colt::RequestContext &) {
         return colt::Response::text("found");
     });
 
@@ -102,13 +102,13 @@ TEST_CASE (
     REQUIRE(app.dispatch(missing).status == 404);
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"routing returns 400 for malformed path parameter escapes"
-)
- {
+
+    "routing returns 400 for malformed path parameter escapes"
+) {
     colt::Application app;
-    app.get("/items/:id", [](const colt::Request&, colt::RequestContext&) {
+    app.get("/items/:id", [](const colt::Request &, colt::RequestContext &) {
         return colt::Response::text("found");
     });
 
@@ -118,17 +118,17 @@ TEST_CASE (
     REQUIRE(app.dispatch(request).status == 400);
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"application forwards request service registration to dispatch context"
-)
- {
+
+    "application forwards request service registration to dispatch context"
+) {
     colt::Application app;
     app.add_request<RouteService>([] { return std::make_shared<RouteService>(); });
     app.add_singleton<SingletonRouteService>([] {
         return std::make_shared<SingletonRouteService>();
     });
-    app.get("/", [](const colt::Request&, colt::RequestContext& context) {
+    app.get("/", [](const colt::Request &, colt::RequestContext &context) {
         return colt::Response::text(context.get<RouteService>().value + ":" +
                                     context.get<SingletonRouteService>().value);
     });
@@ -139,14 +139,14 @@ TEST_CASE (
     REQUIRE(app.dispatch(request).body == "service:singleton");
 }
 
-TEST_CASE (
+TEST_CASE(
 
-"routing preserves mutable handler state across dispatches"
-)
- {
+
+    "routing preserves mutable handler state across dispatches"
+) {
     colt::Application app;
-    app.get("/count", [count = 0](const colt::Request&,
-                                    colt::RequestContext&) mutable {
+    app.get("/count", [count = 0](const colt::Request &,
+                                  colt::RequestContext &) mutable {
         return colt::Response::text(std::to_string(++count));
     });
 
