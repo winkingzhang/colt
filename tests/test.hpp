@@ -6,33 +6,32 @@
 #include <vector>
 
 namespace colt::test {
+    struct TestCase {
+        std::string_view name;
 
-struct TestCase {
-    std::string_view name;
-    void (*run)();
-};
+        void (*run)();
+    };
 
-inline std::vector<TestCase>& test_cases() {
-    static std::vector<TestCase> cases;
-    return cases;
-}
-
-struct RegisterTest {
-    RegisterTest(std::string_view name, void (*run)()) {
-        test_cases().push_back({name, run});
+    inline std::vector<TestCase> &test_cases() {
+        static std::vector<TestCase> cases;
+        return cases;
     }
-};
 
-inline void require(bool condition, std::string_view expression,
-                    std::string_view file, int line) {
-    if (!condition) {
-        throw std::runtime_error(std::string(file) + ":" + std::to_string(line) +
-                                 ": REQUIRE(" + std::string(expression) + ") failed");
+    struct RegisterTest {
+        RegisterTest(std::string_view name, void (*run)()) {
+            test_cases().push_back({name, run});
+        }
+    };
+
+    inline void require(bool condition, std::string_view expression,
+                        std::string_view file, int line) {
+        if (!condition) {
+            throw std::runtime_error(std::string(file) + ":" + std::to_string(line) +
+                                     ": REQUIRE(" + std::string(expression) + ") failed");
+        }
     }
-}
 
-int run_all_tests(std::string_view filter = {});
-
+    int run_all_tests(std::string_view filter = {});
 } // namespace colt::test
 
 #define COLT_TEST_CONCAT_IMPL(left, right) left##right

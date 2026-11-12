@@ -5,11 +5,14 @@
 Implemented only Task 3:
 
 - Added header-only `colt::ServiceRegistry` and `colt::RequestContext` in `include/colt/context.hpp`.
-- Added focused singleton, request-cache, missing-registration, and duplicate-registration tests in `tests/context_test.cpp`.
+- Added focused singleton, request-cache, missing-registration, and duplicate-registration tests in
+  `tests/context_test.cpp`.
 - Registered the context test source and `context` CTest filter in `CMakeLists.txt`.
 - Did not modify HTTP types/parser, socket code, README, or other documentation.
 
-The registry stores factories by `std::type_index`. Singleton entries protect lazy construction with an entry mutex; request-scoped instances are lazily cached per context under its cache mutex. As required, registry configuration is expected to finish before serving and must not race with service resolution.
+The registry stores factories by `std::type_index`. Singleton entries protect lazy construction with an entry mutex;
+request-scoped instances are lazily cached per context under its cache mutex. As required, registry configuration is
+expected to finish before serving and must not race with service resolution.
 
 ## TDD And Verification Results
 
@@ -58,7 +61,9 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.89 sec
 ```
 
-Result: exit 0. Tests assert singleton identity across contexts; exactly-once singleton construction and common identity across 16 resolving threads; request identity within a context and separation between contexts; and `std::out_of_range` / `std::logic_error` for missing / duplicate registration.
+Result: exit 0. Tests assert singleton identity across contexts; exactly-once singleton construction and common identity
+across 16 resolving threads; request identity within a context and separation between contexts; and
+`std::out_of_range` / `std::logic_error` for missing / duplicate registration.
 
 ### Full Build And CTest
 
@@ -108,7 +113,8 @@ Ran:
 [pass] context rejects missing and duplicate service registrations
 ```
 
-Result: exit 0; no warnings were printed. Compiler: Clang on macOS. GCC, Linux, MSVC, and Windows were not available for verification in this environment.
+Result: exit 0; no warnings were printed. Compiler: Clang on macOS. GCC, Linux, MSVC, and Windows were not available for
+verification in this environment.
 
 ### Diff Whitespace Check
 
@@ -122,13 +128,20 @@ Result: exit 0.
 
 ## Self-Review
 
-- Only the requested context header, focused tests, CMake test registration, and this report are included in the task commit.
-- Singleton initialization is guarded across contexts and only publishes a successfully-created shared instance. The multithreaded test checks both the factory count and shared object identity.
-- Request caching is owned by each `RequestContext`; the cache mutex also serializes concurrent resolutions on one context.
-- Lookup of an unregistered type throws `std::out_of_range`; a duplicate type registration, even across singleton/request lifetimes, throws `std::logic_error`.
-- `RequestContext` references its registry, so callers must keep the registry alive for the context lifetime. This follows the required reference semantics.
-- Registry mutation is intentionally not synchronized; the brief specifies configuration before serving and immutability during serving.
-- The `.superpowers/sdd/` path is ignored by the repository's `.gitignore`; this requested report was explicitly force-added. Existing untracked `docs/` files were not staged.
+- Only the requested context header, focused tests, CMake test registration, and this report are included in the task
+  commit.
+- Singleton initialization is guarded across contexts and only publishes a successfully-created shared instance. The
+  multithreaded test checks both the factory count and shared object identity.
+- Request caching is owned by each `RequestContext`; the cache mutex also serializes concurrent resolutions on one
+  context.
+- Lookup of an unregistered type throws `std::out_of_range`; a duplicate type registration, even across
+  singleton/request lifetimes, throws `std::logic_error`.
+- `RequestContext` references its registry, so callers must keep the registry alive for the context lifetime. This
+  follows the required reference semantics.
+- Registry mutation is intentionally not synchronized; the brief specifies configuration before serving and immutability
+  during serving.
+- The `.superpowers/sdd/` path is ignored by the repository's `.gitignore`; this requested report was explicitly
+  force-added. Existing untracked `docs/` files were not staged.
 
 ## Commit
 
@@ -136,7 +149,9 @@ Implementation commit: `3c322b8` (`feat: add request context dependency injectio
 
 ## Portability Review Follow-Up: Thread Target
 
-Added `find_package(Threads REQUIRED)` in the test-enabled CMake configuration and linked `Threads::Threads` to `colt_tests`. The compiled `colt` library does not use threading for this task, so no thread dependency was added to the library target. This explicitly supplies the platform thread linkage required by the test's `std::thread` usage.
+Added `find_package(Threads REQUIRED)` in the test-enabled CMake configuration and linked `Threads::Threads` to
+`colt_tests`. The compiled `colt` library does not use threading for this task, so no thread dependency was added to the
+library target. This explicitly supplies the platform thread linkage required by the test's `std::thread` usage.
 
 ### Configure Check
 

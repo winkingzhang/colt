@@ -9,18 +9,20 @@
 #include <vector>
 
 namespace {
+    struct SingletonService {
+        int value{42};
+    };
 
-struct SingletonService {
-    int value{42};
-};
-
-struct RequestService {
-    int value{7};
-};
-
+    struct RequestService {
+        int value{7};
+    };
 } // namespace
 
-TEST_CASE("context shares singleton instances across contexts") {
+TEST_CASE (
+
+"context shares singleton instances across contexts"
+)
+ {
     colt::ServiceRegistry registry;
     registry.add_singleton<SingletonService>([] {
         return std::make_shared<SingletonService>();
@@ -31,7 +33,11 @@ TEST_CASE("context shares singleton instances across contexts") {
     REQUIRE(&first.get<SingletonService>() == &second.get<SingletonService>());
 }
 
-TEST_CASE("context constructs a singleton once under concurrent resolution") {
+TEST_CASE (
+
+"context constructs a singleton once under concurrent resolution"
+)
+ {
     colt::ServiceRegistry registry;
     std::atomic<int> constructions{0};
     registry.add_singleton<SingletonService>([&] {
@@ -60,7 +66,11 @@ TEST_CASE("context constructs a singleton once under concurrent resolution") {
     for (const auto* instance : instances) REQUIRE(instance == instances.front());
 }
 
-TEST_CASE("context caches request instances within each context only") {
+TEST_CASE (
+
+"context caches request instances within each context only"
+)
+ {
     colt::ServiceRegistry registry;
     registry.add_request<RequestService>([] {
         return std::make_shared<RequestService>();
@@ -72,7 +82,11 @@ TEST_CASE("context caches request instances within each context only") {
     REQUIRE(&first.get<RequestService>() != &second.get<RequestService>());
 }
 
-TEST_CASE("context rejects missing and duplicate service registrations") {
+TEST_CASE (
+
+"context rejects missing and duplicate service registrations"
+)
+ {
     colt::ServiceRegistry registry;
     colt::RequestContext context{registry};
 

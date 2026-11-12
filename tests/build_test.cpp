@@ -11,13 +11,21 @@
 #include <string_view>
 #include <type_traits>
 
-TEST_CASE("default response has status 200 and empty body") {
+TEST_CASE (
+
+"default response has status 200 and empty body"
+)
+ {
     const colt::Response response;
     REQUIRE(response.status == 200);
     REQUIRE(response.body.empty());
 }
 
-TEST_CASE("socket loopback exchanges data on an ephemeral port") {
+TEST_CASE (
+
+"socket loopback exchanges data on an ephemeral port"
+)
+ {
     using colt::detail::platform::Socket;
 
     static_assert(!std::is_copy_constructible_v<Socket>);
@@ -62,7 +70,11 @@ TEST_CASE("socket loopback exchanges data on an ephemeral port") {
     listener.close();
 }
 
-TEST_CASE("socket listen reports single-address bind failure") {
+TEST_CASE (
+
+"socket listen reports single-address bind failure"
+)
+ {
     using namespace colt::detail::platform;
     initialize_sockets();
 
@@ -73,7 +85,11 @@ TEST_CASE("socket listen reports single-address bind failure") {
     }
 }
 
-TEST_CASE("socket connect reports single-address connection failure") {
+TEST_CASE (
+
+"socket connect reports single-address connection failure"
+)
+ {
     using namespace colt::detail::platform;
     initialize_sockets();
 
@@ -84,7 +100,11 @@ TEST_CASE("socket connect reports single-address connection failure") {
     }
 }
 
-TEST_CASE("socket resolver errors use a resolver error category") {
+TEST_CASE (
+
+"socket resolver errors use a resolver error category"
+)
+ {
     using namespace colt::detail::platform;
     initialize_sockets();
 

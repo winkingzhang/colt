@@ -2,27 +2,43 @@
 
 ## Scope
 
-Implemented Task 6 only: server lifecycle, bounded per-connection workers, HTTP request processing, configured limits and keep-alive timeout, loopback coverage, and the directly relevant parked request-target validation fix.
+Implemented Task 6 only: server lifecycle, bounded per-connection workers, HTTP request processing, configured limits
+and keep-alive timeout, loopback coverage, and the directly relevant parked request-target validation fix.
 
 Changes:
 
 - Added `colt::ServerSettings` with `max_connections{256}`, `keep_alive_timeout{30s}`, and default `HttpLimits`.
-- Added `Application::listen`, `bound_port`, and idempotent `stop`; application owns the accept thread, worker threads, listener, and tracked active sockets. No thread is detached.
-- Added a context-taking dispatch overload; the existing `dispatch(Request)` still creates a fresh context. Network processing creates exactly one `RequestContext` per parsed request.
-- Added sequential request processing on each connection. Unconsumed/pipelined bytes remain buffered and are parsed before reading more socket data.
-- Added `include/colt/detail/platform_socket.hpp` as the OS-neutral declaration needed by the public header-only application API; `src/platform/socket.hpp` now forwards to it. OS calls remain in the compiled socket implementation.
-- Added loopback tests for defaults, routes/path parameters, 404, malformed request 400, invalid request-target 400, handler exception 500, request-scope freshness, singleton sharing, keep-alive, response-directed close, timeout, request limits/413, zero and positive connection caps, new admission after worker exit, and stop while a worker is blocked reading.
+- Added `Application::listen`, `bound_port`, and idempotent `stop`; application owns the accept thread, worker threads,
+  listener, and tracked active sockets. No thread is detached.
+- Added a context-taking dispatch overload; the existing `dispatch(Request)` still creates a fresh context. Network
+  processing creates exactly one `RequestContext` per parsed request.
+- Added sequential request processing on each connection. Unconsumed/pipelined bytes remain buffered and are parsed
+  before reading more socket data.
+- Added `include/colt/detail/platform_socket.hpp` as the OS-neutral declaration needed by the public header-only
+  application API; `src/platform/socket.hpp` now forwards to it. OS calls remain in the compiled socket implementation.
+- Added loopback tests for defaults, routes/path parameters, 404, malformed request 400, invalid request-target 400,
+  handler exception 500, request-scope freshness, singleton sharing, keep-alive, response-directed close, timeout,
+  request limits/413, zero and positive connection caps, new admission after worker exit, and stop while a worker is
+  blocked reading.
 - Preserved the unrelated untracked root `docs/` directory; it was not modified or staged.
 
-The requested brief path at the repository root did not exist. The matching brief in the active worktree, `.worktrees/colt-http-framework/.superpowers/sdd/2026-11-11-colt-http-framework/task-6-brief.md`, was used as the authority.
+The requested brief path at the repository root did not exist. The matching brief in the active worktree,
+`.worktrees/colt-http-framework/.superpowers/sdd/2026-11-11-colt-http-framework/task-6-brief.md`, was used as the
+authority.
 
 ## TDD Evidence
 
-Added server tests and CTest registration before server implementation. Initial focused build failed on the missing `Application::bound_port`, `listen`, `stop`, and `ServerSettings` declarations, as expected.
+Added server tests and CTest registration before server implementation. Initial focused build failed on the missing
+`Application::bound_port`, `listen`, `stop`, and `ServerSettings` declarations, as expected.
 
-The first implementation exposed a blocked accept thread during shutdown: focused CTest exceeded the 120-second command timeout, and the individually isolated request tests also exceeded 12 seconds. The blocked-read stop test passed. The root cause was that shutting down the listening socket alone did not reliably wake `accept()` on the local platform. `stop()` now attempts a local wake-up connection as well as shutting down the listener and active connections; subsequent shutdown tests passed repeatedly.
+The first implementation exposed a blocked accept thread during shutdown: focused CTest exceeded the 120-second command
+timeout, and the individually isolated request tests also exceeded 12 seconds. The blocked-read stop test passed. The
+root cause was that shutting down the listening socket alone did not reliably wake `accept()` on the local platform.
+`stop()` now attempts a local wake-up connection as well as shutting down the listener and active connections;
+subsequent shutdown tests passed repeatedly.
 
-Added the invalid-target integration regression before parser changes. The focused run failed specifically because a quoted target did not return 400:
+Added the invalid-target integration regression before parser changes. The focused run failed specifically because a
+quoted target did not return 400:
 
 ```text
 [pass] server routes requests and returns 404 for unmatched paths
@@ -36,11 +52,14 @@ Added the invalid-target integration regression before parser changes. The focus
 [pass] server stop interrupts a worker blocked reading a request
 ```
 
-Added HTTP request-target character validation and parser-level tests for quote, backslash, non-ASCII, and square brackets. The Task 2 parked request-target issue is thereby carried into Task 6 and resolved only to the extent needed for malformed request behavior; no adjacent parser work was included.
+Added HTTP request-target character validation and parser-level tests for quote, backslash, non-ASCII, and square
+brackets. The Task 2 parked request-target issue is thereby carried into Task 6 and resolved only to the extent needed
+for malformed request behavior; no adjacent parser work was included.
 
 ## Final Verification
 
-All commands ran in `/Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework` using the existing Clang/macOS build directory.
+All commands ran in `/Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework` using the existing
+Clang/macOS build directory.
 
 Command:
 
@@ -129,9 +148,11 @@ Total Test time (real) =   2.20 sec
 
 ## Review And Limitations
 
-- Manually reviewed the complete Task 6 diff and the ownership/shutdown flow. No subagents were used, as instructed; this is author self-review rather than independent review.
+- Manually reviewed the complete Task 6 diff and the ownership/shutdown flow. No subagents were used, as instructed;
+  this is author self-review rather than independent review.
 - Server-focused CTest passed 20 consecutive repetitions and the final full CTest run passed 8/8.
-- Only macOS with Clang was available for native verification. GCC/Linux and MSVC/Windows were not built in this task; the Windows socket implementation remains locally unverified.
+- Only macOS with Clang was available for native verification. GCC/Linux and MSVC/Windows were not built in this task;
+  the Windows socket implementation remains locally unverified.
 - No report commit is recorded here; the implementation commit is listed after it is created.
 
 ## Commit
@@ -140,9 +161,13 @@ Implementation commit: `a477f86` (`feat: add HTTP server lifecycle and workers`)
 
 ## Review Follow-Up: Public Thread Linkage
 
-The review finding was confirmed: `Threads::Threads` was discovered only inside the test block, and only the test executable linked it directly. Consequently, consumers linking `Colt::colt` did not inherit the thread usage requirement even though the public application header exposes `std::thread`.
+The review finding was confirmed: `Threads::Threads` was discovered only inside the test block, and only the test
+executable linked it directly. Consequently, consumers linking `Colt::colt` did not inherit the thread usage requirement
+even though the public application header exposes `std::thread`.
 
-Moved `find_package(Threads REQUIRED)` to the library configuration and linked `Threads::Threads` PUBLIC to `colt`. Added a configure-time assertion that the exported interface contains `Threads::Threads` and `tests/consumer_smoke.cpp`, which includes `colt/application.hpp`, uses `std::thread`, and links only `Colt::colt`.
+Moved `find_package(Threads REQUIRED)` to the library configuration and linked `Threads::Threads` PUBLIC to `colt`.
+Added a configure-time assertion that the exported interface contains `Threads::Threads` and `tests/consumer_smoke.cpp`,
+which includes `colt/application.hpp`, uses `std::thread`, and links only `Colt::colt`.
 
 ### Red Phase
 
@@ -204,6 +229,7 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   3.26 sec
 ```
 
-`git diff --check` emitted no output and exited 0. The active worktree contained only the unrelated untracked `docs/` directory after commit; it was not staged or modified.
+`git diff --check` emitted no output and exited 0. The active worktree contained only the unrelated untracked `docs/`
+directory after commit; it was not staged or modified.
 
 Follow-up commit: `e3cbe66d9cf956fe22466f2d270849e1619391ed` (`fix: propagate thread linkage to consumers`).

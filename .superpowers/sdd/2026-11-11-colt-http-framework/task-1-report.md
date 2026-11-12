@@ -5,9 +5,11 @@
 Implemented only Task 1 from `task-1-brief.md`:
 
 - Added the CMake `colt` library target and `Colt::colt` alias with public C++23 and include-directory requirements.
-- Added the dependency-free `TEST_CASE`, `REQUIRE`, and `run_all_tests()` harness, plus the default-Response CTest smoke test.
+- Added the dependency-free `TEST_CASE`, `REQUIRE`, and `run_all_tests()` harness, plus the default-Response CTest smoke
+  test.
 - Added an empty `src/platform/socket.cpp` placeholder for the compiled library source.
-- Added the temporary `colt::Response` declaration in `include/colt/http.hpp`; its default status is 200 and its body is empty.
+- Added the temporary `colt::Response` declaration in `include/colt/http.hpp`; its default status is 200 and its body is
+  empty.
 
 No Task 2 HTTP behavior, platform socket implementation, examples, or other framework features were added.
 
@@ -144,14 +146,18 @@ Result: exit 0 for both whitespace checks.
 
 ## Self-Review
 
-- The library target is named `colt`, exports the requested `Colt::colt` alias, declares `cxx_std_23`, and exports `include/` to consumers.
+- The library target is named `colt`, exports the requested `Colt::colt` alias, declares `cxx_std_23`, and exports
+  `include/` to consumers.
 - Tests are enabled by default through `COLT_BUILD_TESTS` and registered with CTest without external dependencies.
 - The smoke test includes the public header and separately checks status 200 and an empty body.
-- `Response` is defined only in `include/colt/http.hpp` so Task 2 can complete this declaration without introducing a competing definition.
+- `Response` is defined only in `include/colt/http.hpp` so Task 2 can complete this declaration without introducing a
+  competing definition.
 - The platform source is intentionally empty and contains no OS-specific code; Task 5 owns its implementation.
 - Review found no unintended changes in the Task 1 diff. Existing untracked `docs/` files were left untouched.
-- Verification was run with Clang 23.1.5 on macOS only; GCC/Linux and MSVC/Windows were not available for this local run.
+- Verification was run with Clang 23.1.5 on macOS only; GCC/Linux and MSVC/Windows were not available for this local
+  run.
 
 ## Commit
 
-The Task 1 implementation and this report are intended to be committed together with a conventional `build:` commit message.
+The Task 1 implementation and this report are intended to be committed together with a conventional `build:` commit
+message.

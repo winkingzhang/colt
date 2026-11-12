@@ -6,18 +6,20 @@
 #include <string>
 
 namespace {
+    struct RouteService {
+        std::string value{"service"};
+    };
 
-struct RouteService {
-    std::string value{"service"};
-};
-
-struct SingletonRouteService {
-    std::string value{"singleton"};
-};
-
+    struct SingletonRouteService {
+        std::string value{"singleton"};
+    };
 } // namespace
 
-TEST_CASE("routing matches exact HTTP method and literal path") {
+TEST_CASE (
+
+"routing matches exact HTTP method and literal path"
+)
+ {
     colt::Application app;
     app.get("/items", [](const colt::Request&, colt::RequestContext&) {
         return colt::Response::text("get");
@@ -37,7 +39,11 @@ TEST_CASE("routing matches exact HTTP method and literal path") {
     REQUIRE(app.dispatch(post).body == "post");
 }
 
-TEST_CASE("routing extracts percent-decoded path parameters") {
+TEST_CASE (
+
+"routing extracts percent-decoded path parameters"
+)
+ {
     colt::Application app;
     app.get("/users/:user_id/orders/:order", [](const colt::Request& request,
                                                   colt::RequestContext&) {
@@ -51,7 +57,11 @@ TEST_CASE("routing extracts percent-decoded path parameters") {
     REQUIRE(app.dispatch(request).body == "al ice:42");
 }
 
-TEST_CASE("routing keeps encoded slashes inside a parameter segment") {
+TEST_CASE (
+
+"routing keeps encoded slashes inside a parameter segment"
+)
+ {
     colt::Application app;
     app.get("/files/:name", [](const colt::Request& request, colt::RequestContext&) {
         return colt::Response::text(request.path_params.at("name"));
@@ -66,7 +76,11 @@ TEST_CASE("routing keeps encoded slashes inside a parameter segment") {
     REQUIRE(app.dispatch(request).body == "a/b");
 }
 
-TEST_CASE("routing returns 404 for wrong method or segment count") {
+TEST_CASE (
+
+"routing returns 404 for wrong method or segment count"
+)
+ {
     colt::Application app;
     app.get("/items/:id", [](const colt::Request&, colt::RequestContext&) {
         return colt::Response::text("found");
@@ -88,7 +102,11 @@ TEST_CASE("routing returns 404 for wrong method or segment count") {
     REQUIRE(app.dispatch(missing).status == 404);
 }
 
-TEST_CASE("routing returns 400 for malformed path parameter escapes") {
+TEST_CASE (
+
+"routing returns 400 for malformed path parameter escapes"
+)
+ {
     colt::Application app;
     app.get("/items/:id", [](const colt::Request&, colt::RequestContext&) {
         return colt::Response::text("found");
@@ -100,7 +118,11 @@ TEST_CASE("routing returns 400 for malformed path parameter escapes") {
     REQUIRE(app.dispatch(request).status == 400);
 }
 
-TEST_CASE("application forwards request service registration to dispatch context") {
+TEST_CASE (
+
+"application forwards request service registration to dispatch context"
+)
+ {
     colt::Application app;
     app.add_request<RouteService>([] { return std::make_shared<RouteService>(); });
     app.add_singleton<SingletonRouteService>([] {
@@ -117,7 +139,11 @@ TEST_CASE("application forwards request service registration to dispatch context
     REQUIRE(app.dispatch(request).body == "service:singleton");
 }
 
-TEST_CASE("routing preserves mutable handler state across dispatches") {
+TEST_CASE (
+
+"routing preserves mutable handler state across dispatches"
+)
+ {
     colt::Application app;
     app.get("/count", [count = 0](const colt::Request&,
                                     colt::RequestContext&) mutable {

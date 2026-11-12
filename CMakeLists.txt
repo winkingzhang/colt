@@ -10,32 +10,32 @@ add_library(colt src/platform/socket.cpp)
 add_library(Colt::colt ALIAS colt)
 target_compile_features(colt PUBLIC cxx_std_23)
 target_include_directories(colt PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_include_directories(colt PRIVATE src)
 target_link_libraries(colt PUBLIC Threads::Threads)
-if(WIN32)
+if (WIN32)
     target_link_libraries(colt PRIVATE ws2_32)
-endif()
+endif ()
 
-if(COLT_BUILD_TESTS)
+if (COLT_BUILD_TESTS)
     enable_testing()
     add_executable(colt_tests
-        tests/test_main.cpp
-        tests/build_test.cpp
-        tests/http_parser_test.cpp
-        tests/http_serializer_test.cpp
-        tests/context_test.cpp
-        tests/routing_test.cpp
-        tests/middleware_test.cpp
-        tests/server_test.cpp
+            tests/test_main.cpp
+            tests/build_test.cpp
+            tests/http_parser_test.cpp
+            tests/http_serializer_test.cpp
+            tests/context_test.cpp
+            tests/routing_test.cpp
+            tests/middleware_test.cpp
+            tests/server_test.cpp
     )
     target_include_directories(colt_tests PRIVATE src)
     target_link_libraries(colt_tests PRIVATE Colt::colt Threads::Threads)
     get_target_property(colt_interface_links colt INTERFACE_LINK_LIBRARIES)
-    if(NOT "${colt_interface_links}" MATCHES "Threads::Threads")
+    if (NOT "${colt_interface_links}" MATCHES "Threads::Threads")
         message(FATAL_ERROR "Colt::colt must publish Threads::Threads")
-    endif()
+    endif ()
     add_executable(colt_consumer_smoke tests/consumer_smoke.cpp)
     target_link_libraries(colt_consumer_smoke PRIVATE Colt::colt)
     add_test(NAME colt_tests COMMAND colt_tests)
@@ -47,9 +47,9 @@ if(COLT_BUILD_TESTS)
     add_test(NAME routing COMMAND colt_tests routing)
     add_test(NAME middleware COMMAND colt_tests middleware)
     add_test(NAME server COMMAND colt_tests server)
-endif()
+endif ()
 
-if(COLT_BUILD_EXAMPLES)
+if (COLT_BUILD_EXAMPLES)
     add_executable(colt_hello examples/hello.cpp)
     target_link_libraries(colt_hello PRIVATE Colt::colt)
-endif()
+endif ()

@@ -4,6 +4,7 @@
 
 int main() {
     colt::Application app;
-    std::thread worker([] {});
+    std::thread worker([] {
+    });
     worker.join();
 }

@@ -78,7 +78,8 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 100% tests passed, 0 tests failed out of 3
 ```
 
-Result: exit 0. The configured compiler in `build/CMakeCache.txt` is `/opt/homebrew/opt/llvm/bin/clang++`, Clang 23.1.5 on macOS.
+Result: exit 0. The configured compiler in `build/CMakeCache.txt` is `/opt/homebrew/opt/llvm/bin/clang++`, Clang 23.1.5
+on macOS.
 
 ### GCC-Identified Compiler Build And Tests
 
@@ -110,7 +111,9 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 100% tests passed, 0 tests failed out of 3
 ```
 
-Result: exit 0. `/usr/bin/g++ --version` reports Apple clang masquerading as the system `g++` driver, not GNU GCC; this validates the alternate driver invocation only, not a GNU GCC implementation. The temporary `build-gcc/` directory was removed with `cmake -E rm -rf build-gcc` after verification.
+Result: exit 0. `/usr/bin/g++ --version` reports Apple clang masquerading as the system `g++` driver, not GNU GCC; this
+validates the alternate driver invocation only, not a GNU GCC implementation. The temporary `build-gcc/` directory was
+removed with `cmake -E rm -rf build-gcc` after verification.
 
 ### Clang Warning-Enabled Direct Build
 
@@ -151,20 +154,33 @@ Result: exit 0.
 ## Self-Review
 
 - The pre-existing `Response` was completed in place; only one definition exists.
-- Header name comparisons are ASCII case-insensitive while original field names and values are stored; lookup returns the first value, `set` replaces matching values, and `add` preserves duplicates.
-- Parser defaults match the brief: request line 8 KiB, aggregate headers 32 KiB, body 1 MiB. Equality at the configured body/request-line/header limits and over-limit results are covered.
-- Parsing accepts HTTP/1.1 origin-form targets, enforces request/header syntax, accounts incrementally for partial CRLFs, rejects duplicate `Content-Length` (equal or conflicting), all `Transfer-Encoding`, unsupported combined framing, invalid numeric lengths, and malformed query/path escapes. `bytes_consumed` stops after exactly one declared request body, preserving pipelined bytes.
-- Query parsing splits at `&` and the first `=` before percent decoding, converts `+` to space, preserves encoded delimiters, and rejects malformed `%` sequences.
-- The serializer computes byte length from the response body and replaces provided content-length/connection policy headers. Common status reasons are mapped; unknown status values serialize with `Unknown`.
-- Focused CTest filters are implemented in the existing tiny harness rather than registering multiple names that run the full suite.
-- Platform verification was limited to macOS. Clang 23.1.5 passed; the system `g++` command is AppleClang, so GNU GCC, MSVC, Linux, and Windows were not verified in this environment.
+- Header name comparisons are ASCII case-insensitive while original field names and values are stored; lookup returns
+  the first value, `set` replaces matching values, and `add` preserves duplicates.
+- Parser defaults match the brief: request line 8 KiB, aggregate headers 32 KiB, body 1 MiB. Equality at the configured
+  body/request-line/header limits and over-limit results are covered.
+- Parsing accepts HTTP/1.1 origin-form targets, enforces request/header syntax, accounts incrementally for partial
+  CRLFs, rejects duplicate `Content-Length` (equal or conflicting), all `Transfer-Encoding`, unsupported combined
+  framing, invalid numeric lengths, and malformed query/path escapes. `bytes_consumed` stops after exactly one declared
+  request body, preserving pipelined bytes.
+- Query parsing splits at `&` and the first `=` before percent decoding, converts `+` to space, preserves encoded
+  delimiters, and rejects malformed `%` sequences.
+- The serializer computes byte length from the response body and replaces provided content-length/connection policy
+  headers. Common status reasons are mapped; unknown status values serialize with `Unknown`.
+- Focused CTest filters are implemented in the existing tiny harness rather than registering multiple names that run the
+  full suite.
+- Platform verification was limited to macOS. Clang 23.1.5 passed; the system `g++` command is AppleClang, so GNU GCC,
+  MSVC, Linux, and Windows were not verified in this environment.
 - Existing untracked `docs/` files were present before Task 2 and were left untouched.
 
 ## Fix Follow-Up: Response Header Injection
 
-The serializer originally emitted caller-provided field names and values verbatim. It now validates every header name against HTTP token characters and rejects field values containing NUL, CR, LF, DEL, or other controls except horizontal tab. Invalid fields throw `std::invalid_argument` before any serialized string is returned. Regression tests cover CR/LF-bearing field names, CR/LF values, NUL, and another control byte.
+The serializer originally emitted caller-provided field names and values verbatim. It now validates every header name
+against HTTP token characters and rejects field values containing NUL, CR, LF, DEL, or other controls except horizontal
+tab. Invalid fields throw `std::invalid_argument` before any serialized string is returned. Regression tests cover
+CR/LF-bearing field names, CR/LF values, NUL, and another control byte.
 
-TDD red result, from `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure` before the serializer validation was implemented:
+TDD red result, from `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure` before the
+serializer validation was implemented:
 
 ```text
 [pass] serializer emits a default 200 response
@@ -204,24 +220,37 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.03 sec
 ```
 
-Command sequence: `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`. Exit 0. `cmake --build build` output was `[ 28%] Built target colt` and `[100%] Built target colt_tests`; `git diff --check` produced no output.
+Command sequence:
+`cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`.
+Exit 0. `cmake --build build` output was `[ 28%] Built target colt` and `[100%] Built target colt_tests`;
+`git diff --check` produced no output.
 
-`git diff --cached --check` also completed with exit 0 and no output after staging the intended Task 2 files and this report. Existing untracked `docs/` was not staged.
+`git diff --cached --check` also completed with exit 0 and no output after staging the intended Task 2 files and this
+report. Existing untracked `docs/` was not staged.
 
-Implementation commit: `1626120` (`feat: add bounded HTTP parsing and serialization`). It includes the report and all Task 2 implementation/tests. `git status --short --branch` after the commit showed only the pre-existing untracked `docs/` directory, which was not staged. `git diff HEAD^ HEAD --check` completed with exit 0 and no output.
+Implementation commit: `1626120` (`feat: add bounded HTTP parsing and serialization`). It includes the report and all
+Task 2 implementation/tests. `git status --short --branch` after the commit showed only the pre-existing untracked
+`docs/` directory, which was not staged. `git diff HEAD^ HEAD --check` completed with exit 0 and no output.
 
 ## Review Follow-Up: Host And Response Framing Semantics
 
 Addressed four reviewer findings with regression tests:
 
-- HTTP/1.1 requests must contain exactly one nonempty, case-insensitive `Host`; missing, duplicate, or empty values return `bad_request` with connection close.
-- Serialization rejects any caller-provided `Transfer-Encoding` with `std::invalid_argument` to avoid emitting it with a `Content-Length`.
+- HTTP/1.1 requests must contain exactly one nonempty, case-insensitive `Host`; missing, duplicate, or empty values
+  return `bad_request` with connection close.
+- Serialization rejects any caller-provided `Transfer-Encoding` with `std::invalid_argument` to avoid emitting it with a
+  `Content-Length`.
 - Serialization rejects status values outside the valid 100-599 range with `std::invalid_argument`.
-- 1xx, 204, 205, and 304 responses omit both body bytes and `Content-Length`; status phrases were added for 100, 205, and 304.
+- 1xx, 204, 205, and 304 responses omit both body bytes and `Content-Length`; status phrases were added for 100, 205,
+  and 304.
 
-The new tests were first run against the old implementation using `cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure`. Both focused CTest entries failed as expected: parser failed because a missing Host was accepted; serializer failed for accepted Transfer-Encoding, invalid status values, and body-bearing no-content statuses.
+The new tests were first run against the old implementation using
+`cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure`. Both focused CTest
+entries failed as expected: parser failed because a missing Host was accepted; serializer failed for accepted
+Transfer-Encoding, invalid status values, and body-bearing no-content statuses.
 
-After the fixes, the final verification command was `cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+After the fixes, the final verification command was
+`cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
 
 ```text
 [ 28%] Built target colt
@@ -251,13 +280,22 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.04 sec
 ```
 
-`git diff --check` exited 0 with no output. Review-fix commit: `82cdc69` (`fix: enforce HTTP host and response framing rules`). The staged files were limited to `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, `tests/http_serializer_test.cpp`, and this report; existing untracked `docs/` was left unstaged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+`git diff --check` exited 0 with no output. Review-fix commit: `82cdc69`
+(`fix: enforce HTTP host and response framing rules`). The staged files were limited to
+`include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, `tests/http_serializer_test.cpp`, and this report;
+existing untracked `docs/` was left unstaged. `git diff HEAD^ HEAD --check` exited 0 with no output.
 
 ## Review Follow-Up: Host Authority Validation
 
-Added focused validation for exactly one HTTP/1.1 Host authority. Unbracketed authorities accept a nonempty reg-name (including valid percent-encoded octets) with an optional numeric port from 0 through 65535. Bracketed hosts accept IPv6 or IPvFuture literals, optionally followed by a numeric port. Empty hosts/ports, malformed percent escapes, invalid port syntax or overflow, unbracketed IPv6, malformed brackets, userinfo, whitespace/control, and path/query suffixes return `bad_request` and close the connection. Regression tests cover accepted DNS/IPv4-like and bracketed IPv6 forms and the requested rejection cases.
+Added focused validation for exactly one HTTP/1.1 Host authority. Unbracketed authorities accept a nonempty reg-name
+(including valid percent-encoded octets) with an optional numeric port from 0 through 65535. Bracketed hosts accept IPv6
+or IPvFuture literals, optionally followed by a numeric port. Empty hosts/ports, malformed percent escapes, invalid port
+syntax or overflow, unbracketed IPv6, malformed brackets, userinfo, whitespace/control, and path/query suffixes return
+`bad_request` and close the connection. Regression tests cover accepted DNS/IPv4-like and bracketed IPv6 forms and the
+requested rejection cases.
 
-The focused parser test was first run before implementing the validator with `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure` and failed as expected:
+The focused parser test was first run before implementing the validator with
+`cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure` and failed as expected:
 
 ```text
 Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-framework/build
@@ -273,7 +311,8 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 0% tests passed, 1 tests failed out of 1
 ```
 
-The final command was `cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+The final command was
+`cmake --build build && ctest --test-dir build -R 'http_parser|http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
 
 ```text
 [ 28%] Built target colt
@@ -302,11 +341,16 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.04 sec
 ```
 
-The trailing `git diff --check` exited 0 with no output. Commit: `ccf63d2` (`fix: validate HTTP Host authorities`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were staged; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+The trailing `git diff --check` exited 0 with no output. Commit: `ccf63d2` (`fix: validate HTTP Host authorities`). Only
+`include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were staged; the existing untracked
+`docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
 
 ## Review Follow-Up: IPvFuture Literal Tail Grammar
 
-`is_ip_literal` previously validated the IPvFuture tail with generic HTTP token characters, admitting characters outside RFC 3986's IPvFuture `unreserved / sub-delims / ":"` set. Replaced that check with the explicit grammar set, retaining the existing version-prefix validation. The Host-authority tests now accept `[v1.foo]` and a tail containing the allowed punctuation, and reject `#`, `^`, and `%` in IPvFuture tails.
+`is_ip_literal` previously validated the IPvFuture tail with generic HTTP token characters, admitting characters outside
+RFC 3986's IPvFuture `unreserved / sub-delims / ":"` set. Replaced that check with the explicit grammar set, retaining
+the existing version-prefix validation. The Host-authority tests now accept `[v1.foo]` and a tail containing the allowed
+punctuation, and reject `#`, `^`, and `%` in IPvFuture tails.
 
 The focused regression was run before changing the implementation with:
 
@@ -387,13 +431,20 @@ Total Test time (real) =   0.03 sec
 
 Result: exit 0; `git diff --check` emitted no output.
 
-Implementation commit: `97e1320` (`fix: validate IPvFuture literal tails`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+Implementation commit: `97e1320` (`fix: validate IPvFuture literal tails`). Only `include/colt/detail/http_parser.hpp`,
+`tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged.
+`git diff HEAD^ HEAD --check` exited 0 with no output.
 
 ## Review Follow-Up: Strict IPv4 Components In IPv6 Literals
 
-Strictly validated IPv4 dotted quads as exactly four decimal octets in the range 0-255. Multi-digit octets with leading zeroes are rejected as noncanonical, and empty trailing components are rejected. IPv4 embedded in IPv6 is now accepted only as the final address component; the compressed form can contain it only on the right side of `::`. Tests include valid standalone-compatible embedded IPv4 forms `[2001:db8::192.0.2.1]` and `[::192.0.2.1]`, and reject `[192.0.2.1::]`, `[192.0.2.1:1::]`, `[::ffff:192.000.2.1]`, `[::ffff:192.0.2.1.]`, an incomplete dotted quad, and an out-of-range octet.
+Strictly validated IPv4 dotted quads as exactly four decimal octets in the range 0-255. Multi-digit octets with leading
+zeroes are rejected as noncanonical, and empty trailing components are rejected. IPv4 embedded in IPv6 is now accepted
+only as the final address component; the compressed form can contain it only on the right side of `::`. Tests include
+valid standalone-compatible embedded IPv4 forms `[2001:db8::192.0.2.1]` and `[::192.0.2.1]`, and reject `[192.0.2.1::]`,
+`[192.0.2.1:1::]`, `[::ffff:192.000.2.1]`, `[::ffff:192.0.2.1.]`, an incomplete dotted quad, and an out-of-range octet.
 
-The focused regression was run before the parser change using `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure`:
+The focused regression was run before the parser change using
+`cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure`:
 
 ```text
 [ 28%] Built target colt
@@ -429,7 +480,8 @@ Errors while running CTest
 
 Result: expected failure reproduced by malformed IPv4/IPv6 authority cases.
 
-After the parser change, focused tests and the complete suite were run with `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+After the parser change, focused tests and the complete suite were run with
+`cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
 
 ```text
 [ 28%] Built target colt
@@ -454,11 +506,18 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.03 sec
 ```
 
-Result: exit 0; `git diff --check` emitted no output. Implementation commit: `43a0b23` (`fix: validate embedded IPv4 literals strictly`). Only `include/colt/detail/http_parser.hpp`, `tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+Result: exit 0; `git diff --check` emitted no output. Implementation commit: `43a0b23`
+(`fix: validate embedded IPv4 literals strictly`). Only `include/colt/detail/http_parser.hpp`,
+`tests/http_parser_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged.
+`git diff HEAD^ HEAD --check` exited 0 with no output.
 
 ## Review Follow-Up: Aggregate Header Limit Includes Terminator
 
-Added exact-boundary assertions for a request whose complete header section is 11 bytes (`Host: x\r\n\r\n`): it is accepted with `header_bytes == 11` and rejected with `header_bytes == 10`. These regressions passed against the current parser before any implementation change. Inspection confirms the existing accounting at the `header_end` check uses `header_end - headers_start + 2`, so it includes every header line CRLF and the final blank-line CRLF; no parser implementation change was necessary or made.
+Added exact-boundary assertions for a request whose complete header section is 11 bytes (`Host: x\r\n\r\n`): it is
+accepted with `header_bytes == 11` and rejected with `header_bytes == 10`. These regressions passed against the current
+parser before any implementation change. Inspection confirms the existing accounting at the `header_end` check uses
+`header_end - headers_start + 2`, so it includes every header line CRLF and the final blank-line CRLF; no parser
+implementation change was necessary or made.
 
 Focused verification command: `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure`.
 
@@ -476,7 +535,8 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) = 0.94 sec
 ```
 
-Full verification command: `cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`.
+Full verification command:
+`cmake --build build && ctest --test-dir build -R 'http_parser' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`.
 
 ```text
 [ 28%] Built target colt
@@ -501,13 +561,20 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.03 sec
 ```
 
-Result: exit 0; the trailing `git diff --check` emitted no output. Commit: `d0b06a5` (`test: cover aggregate header limit terminator`). Only `tests/http_parser_test.cpp` and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output. The finding is not reproducible against the current parser: the terminator CRLF was already included in the existing calculation.
+Result: exit 0; the trailing `git diff --check` emitted no output. Commit: `d0b06a5`
+(`test: cover aggregate header limit terminator`). Only `tests/http_parser_test.cpp` and this report were committed; the
+existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output. The finding
+is not reproducible against the current parser: the terminator CRLF was already included in the existing calculation.
 
 ## Final Review Follow-Up: Persistent Framing For 205
 
-`serialize_response` now emits `Content-Length: 0` for status 205 while continuing to suppress response body bytes. The 204 behavior remains unchanged and omits `Content-Length`. The serializer regression asserts the exact 205 response including zero-length framing and `Connection: keep-alive`, and independently asserts that the supplied body is absent; the existing 204 assertion still checks no content length.
+`serialize_response` now emits `Content-Length: 0` for status 205 while continuing to suppress response body bytes. The
+204 behavior remains unchanged and omits `Content-Length`. The serializer regression asserts the exact 205 response
+including zero-length framing and `Connection: keep-alive`, and independently asserts that the supplied body is absent;
+the existing 204 assertion still checks no content length.
 
-The focused regression ran before the implementation change with `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure`:
+The focused regression ran before the implementation change with
+`cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure`:
 
 ```text
 [ 28%] Built target colt
@@ -538,7 +605,9 @@ Errors while running CTest
 
 Result: expected failure reproduced because status 205 omitted the required zero-length framing.
 
-An initial implementation allowed the 205 content-length branch but used the response body's original size. The focused command was rerun and correctly continued failing the exact 205 assertion, demonstrating that 205 must advertise zero rather than the suppressed body's length:
+An initial implementation allowed the 205 content-length branch but used the response body's original size. The focused
+command was rerun and correctly continued failing the exact 205 assertion, demonstrating that 205 must advertise zero
+rather than the suppressed body's length:
 
 ```text
 [ 28%] Built target colt
@@ -568,7 +637,8 @@ The following tests FAILED:
 Errors while running CTest
 ```
 
-After the implementation change, final verification ran with `cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
+After the implementation change, final verification ran with
+`cmake --build build && ctest --test-dir build -R 'http_serializer' --output-on-failure && ctest --test-dir build --output-on-failure && git diff --check`:
 
 ```text
 [ 28%] Built target colt
@@ -593,4 +663,7 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) = 0.04 sec
 ```
 
-Result: exit 0; trailing `git diff --check` emitted no output. Implementation commit: `57651e7` (`fix: frame bodyless 205 responses`). Only `include/colt/detail/http_parser.hpp`, `tests/http_serializer_test.cpp`, and this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check` exited 0 with no output.
+Result: exit 0; trailing `git diff --check` emitted no output. Implementation commit: `57651e7`
+(`fix: frame bodyless 205 responses`). Only `include/colt/detail/http_parser.hpp`, `tests/http_serializer_test.cpp`, and
+this report were committed; the existing untracked `docs/` directory was not staged. `git diff HEAD^ HEAD --check`
+exited 0 with no output.

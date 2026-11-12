@@ -6,7 +6,11 @@
 #include <string>
 #include <vector>
 
-TEST_CASE("middleware runs in registration order and unwinds in reverse") {
+TEST_CASE (
+
+"middleware runs in registration order and unwinds in reverse"
+)
+ {
     colt::Application app;
     std::vector<std::string> events;
     app.use([&](const colt::Request&, colt::RequestContext&, colt::Next next) {
@@ -36,7 +40,11 @@ TEST_CASE("middleware runs in registration order and unwinds in reverse") {
                                                 "second response", "first response"}));
 }
 
-TEST_CASE("middleware can short circuit route dispatch") {
+TEST_CASE (
+
+"middleware can short circuit route dispatch"
+)
+ {
     colt::Application app;
     app.use([](const colt::Request&, colt::RequestContext&, colt::Next) {
         return colt::Response::text("stopped", 401);
@@ -53,7 +61,11 @@ TEST_CASE("middleware can short circuit route dispatch") {
     REQUIRE(response.body == "stopped");
 }
 
-TEST_CASE("middleware can read matched path parameters before next") {
+TEST_CASE (
+
+"middleware can read matched path parameters before next"
+)
+ {
     colt::Application app;
     app.use([](const colt::Request& request, colt::RequestContext&, colt::Next next) {
         auto response = colt::Response::text(request.path_params.at("id"));
@@ -71,7 +83,11 @@ TEST_CASE("middleware can read matched path parameters before next") {
     REQUIRE(app.dispatch(request).body == "42:handler");
 }
 
-TEST_CASE("middleware route registration does not invalidate the matched handler") {
+TEST_CASE (
+
+"middleware route registration does not invalidate the matched handler"
+)
+ {
     colt::Application app;
     app.use([&](const colt::Request&, colt::RequestContext&, colt::Next next) {
         for (int i = 0; i < 1024; ++i) {
@@ -92,7 +108,11 @@ TEST_CASE("middleware route registration does not invalidate the matched handler
     REQUIRE(app.dispatch(request).body == "42");
 }
 
-TEST_CASE("middleware and handler exceptions become 500 responses") {
+TEST_CASE (
+
+"middleware and handler exceptions become 500 responses"
+)
+ {
     colt::Application handler_app;
     handler_app.get("/", [](const colt::Request&, colt::RequestContext&) -> colt::Response {
         throw std::runtime_error("handler failure");
@@ -110,7 +130,11 @@ TEST_CASE("middleware and handler exceptions become 500 responses") {
     REQUIRE(middleware_app.dispatch(request).status == 500);
 }
 
-TEST_CASE("middleware repeated next returns 500 without dispatching twice") {
+TEST_CASE (
+
+"middleware repeated next returns 500 without dispatching twice"
+)
+ {
     colt::Application app;
     int calls = 0;
     app.use([](const colt::Request&, colt::RequestContext&, colt::Next next) {

@@ -4,12 +4,16 @@
 
 Implemented Task 5 only:
 
-- Added `src/platform/socket.hpp` with the private OS-neutral, move-only RAII socket handle and socket operations required by Task 5.
-- Added `src/platform/socket.cpp` with POSIX and `_WIN32` WinSock backends, error conversion, initialization, connection/listen/accept, I/O, timeout, shutdown, and local-port lookup.
-- Updated `CMakeLists.txt` to link WinSock on Windows, expose `src` privately to tests, and register the focused socket test.
+- Added `src/platform/socket.hpp` with the private OS-neutral, move-only RAII socket handle and socket operations
+  required by Task 5.
+- Added `src/platform/socket.cpp` with POSIX and `_WIN32` WinSock backends, error conversion, initialization,
+  connection/listen/accept, I/O, timeout, shutdown, and local-port lookup.
+- Updated `CMakeLists.txt` to link WinSock on Windows, expose `src` privately to tests, and register the focused socket
+  test.
 - Extended `tests/build_test.cpp` with a loopback round-trip using a port-0 listener.
 
-No framework/public API files or third-party dependencies were added. The unrelated pre-existing untracked `docs/` directory was not staged or modified by this task.
+No framework/public API files or third-party dependencies were added. The unrelated pre-existing untracked `docs/`
+directory was not staged or modified by this task.
 
 ## TDD And Verification
 
@@ -86,7 +90,9 @@ Command:
 
 `cmake -S . -B build-warnings -DCOLT_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS='-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion' && cmake --build build-warnings`
 
-Result: configure and build succeeded with Clang 23.1.5 on macOS. The new socket implementation emitted no warnings. Existing `include/colt/detail/http_parser.hpp` emitted six `-Wsign-conversion` warnings; these are outside Task 5 and were not changed.
+Result: configure and build succeeded with Clang 23.1.5 on macOS. The new socket implementation emitted no warnings.
+Existing `include/colt/detail/http_parser.hpp` emitted six `-Wsign-conversion` warnings; these are outside Task 5 and
+were not changed.
 
 Ran the warnings-build tests:
 
@@ -115,14 +121,20 @@ Test project /Users/alfiezhang/Works/winkingzhang/colt/.worktrees/colt-http-fram
 Total Test time (real) =   0.25 sec
 ```
 
-`git diff --check` emitted no output and exited 0. The temporary `build-warnings/` directory was removed with `cmake -E rm -rf build-warnings` and is not included in the commit.
+`git diff --check` emitted no output and exited 0. The temporary `build-warnings/` directory was removed with
+`cmake -E rm -rf build-warnings` and is not included in the commit.
 
 ## Review And Platform Coverage
 
-- Reviewed all changed source and CMake diffs. The header does not include POSIX or WinSock types; native calls, errors, constants, and startup are confined to `socket.cpp`.
-- The backend uses `SOCKET`/`INVALID_SOCKET` and `int` Winsock I/O lengths under `_WIN32`; startup is owned by a function-local static runtime and Windows CMake links `ws2_32`.
-- POSIX `accept`, `recv`, and `send` retry `EINTR`; `send_all` handles partial sends and suppresses `SIGPIPE` where supported. RAII closes handles on normal scope exit and error paths.
-- Native verification was available only on macOS with Clang 23.1.5. `g++` exists on the host but was not used for a Linux build. No `x86_64-w64-mingw32-g++` command was available, and MSVC/Windows could not be run here; the guarded WinSock branch therefore remains uncompiled locally.
+- Reviewed all changed source and CMake diffs. The header does not include POSIX or WinSock types; native calls, errors,
+  constants, and startup are confined to `socket.cpp`.
+- The backend uses `SOCKET`/`INVALID_SOCKET` and `int` Winsock I/O lengths under `_WIN32`; startup is owned by a
+  function-local static runtime and Windows CMake links `ws2_32`.
+- POSIX `accept`, `recv`, and `send` retry `EINTR`; `send_all` handles partial sends and suppresses `SIGPIPE` where
+  supported. RAII closes handles on normal scope exit and error paths.
+- Native verification was available only on macOS with Clang 23.1.5. `g++` exists on the host but was not used for a
+  Linux build. No `x86_64-w64-mingw32-g++` command was available, and MSVC/Windows could not be run here; the guarded
+  WinSock branch therefore remains uncompiled locally.
 - No subagents were used, as instructed.
 
 ## Commit
@@ -131,11 +143,15 @@ Implementation commit: `5df7bbb` (`feat: add cross-platform socket layer`).
 
 ## Review Follow-Up: Resolver Candidate Retry And Error Category
 
-Review identified that `connect_tcp` stopped at the first failed address candidate and that `getaddrinfo` errors were assigned to `std::generic_category()`. The connection loop now closes each failed candidate, tries the next, and throws the last captured socket error only after exhausting the results. POSIX and WinSock resolver errors now use a dedicated `getaddrinfo` error category with the platform resolver message.
+Review identified that `connect_tcp` stopped at the first failed address candidate and that `getaddrinfo` errors were
+assigned to `std::generic_category()`. The connection loop now closes each failed candidate, tries the next, and throws
+the last captured socket error only after exhausting the results. POSIX and WinSock resolver errors now use a dedicated
+`getaddrinfo` error category with the platform resolver message.
 
 Added two regressions:
 
-- An IPv4-only ephemeral listener connects via `localhost`, exercising the resolver's later IPv4 candidate after the preceding candidate fails where dual results are provided.
+- An IPv4-only ephemeral listener connects via `localhost`, exercising the resolver's later IPv4 candidate after the
+  preceding candidate fails where dual results are provided.
 - An invalid host verifies the thrown resolver error has the `getaddrinfo` category.
 
 ### Red Phase
@@ -204,11 +220,18 @@ Code and test commit: `421d051` (`fix: retry resolved socket addresses`).
 
 ## Review Follow-Up: Listener Candidate Retry
 
-Review found `listen_tcp` stopped after a candidate's `setsockopt`, `bind`, or `listen` failure. It now captures socket creation and setup errors, closes each failed candidate, tries remaining resolved addresses, and throws the final candidate's error after exhaustion. Non-system exceptions still close the candidate and propagate immediately.
+Review found `listen_tcp` stopped after a candidate's `setsockopt`, `bind`, or `listen` failure. It now captures socket
+creation and setup errors, closes each failed candidate, tries remaining resolved addresses, and throws the final
+candidate's error after exhaustion. Non-system exceptions still close the candidate and propagate immediately.
 
-Added a real-socket test that first binds an IPv6 loopback listener on an ephemeral port, then asks `listen_tcp("localhost", that_port, ...)` to bind the same port. On this host, localhost resolves the already-occupied IPv6 candidate before the available IPv4 candidate. The regression failed before the fix with `bind: Address already in use` and passes after retry.
+Added a real-socket test that first binds an IPv6 loopback listener on an ephemeral port, then asks
+`listen_tcp("localhost", that_port, ...)` to bind the same port. On this host, localhost resolves the already-occupied
+IPv6 candidate before the available IPv4 candidate. The regression failed before the fix with
+`bind: Address already in use` and passes after retry.
 
-This test depends on local IPv6 availability and resolver results/order. It verifies fallback on this host but is not deterministic across all supported platforms; the earlier `connect_tcp("localhost", ...)` test is likewise resolver-dependent and is not, on its own, proof of candidate retry everywhere.
+This test depends on local IPv6 availability and resolver results/order. It verifies fallback on this host but is not
+deterministic across all supported platforms; the earlier `connect_tcp("localhost", ...)` test is likewise
+resolver-dependent and is not, on its own, proof of candidate retry everywhere.
 
 ### Final Verification
 
@@ -255,9 +278,15 @@ Code and test commit: `7dbdb96` (`fix: retry listener address candidates`).
 
 ## Final Review Follow-Up: Remove Dual-Stack Test Assumptions
 
-Removed the `::1`/`localhost` listener fallback test and the `localhost` connect fallback test. They depended on IPv6 availability and resolver candidate ordering, so they could fail on valid IPv4-only configurations and did not deterministically prove fallback. The implementation's candidate retry remains intact and code-reviewed, but multi-candidate fallback is not deterministically integration-tested; no resolver injection seam was added solely for this test.
+Removed the `::1`/`localhost` listener fallback test and the `localhost` connect fallback test. They depended on IPv6
+availability and resolver candidate ordering, so they could fail on valid IPv4-only configurations and did not
+deterministically prove fallback. The implementation's candidate retry remains intact and code-reviewed, but
+multi-candidate fallback is not deterministically integration-tested; no resolver injection seam was added solely for
+this test.
 
-The focused tests now use numeric IPv4 addresses for the ephemeral loopback round-trip, a single-address listener bind failure (`192.0.2.1`), a single-address connect failure (`127.0.0.1:0`), and the resolver error-category assertion. This removes the socket suite's IPv6 and localhost-order dependency.
+The focused tests now use numeric IPv4 addresses for the ephemeral loopback round-trip, a single-address listener bind
+failure (`192.0.2.1`), a single-address connect failure (`127.0.0.1:0`), and the resolver error-category assertion. This
+removes the socket suite's IPv6 and localhost-order dependency.
 
 ### Final Verification
 
@@ -304,7 +333,10 @@ Test-only commit: `90912cb` (`test: remove dual-stack socket assumptions`).
 
 ## Final Review Follow-Up: TCP Partial Reads In Round-Trip Test
 
-Updated the loopback round-trip test to accumulate bytes until each expected payload length is reached instead of assuming one `receive` returns the complete TCP payload. A zero-byte receive before completion fails the assertion; socket errors propagate as test failures. Both connected sockets have five-second receive timeouts, bounding the test if a peer does not send.
+Updated the loopback round-trip test to accumulate bytes until each expected payload length is reached instead of
+assuming one `receive` returns the complete TCP payload. A zero-byte receive before completion fails the assertion;
+socket errors propagate as test failures. Both connected sockets have five-second receive timeouts, bounding the test if
+a peer does not send.
 
 ### Final Verification
 
@@ -352,7 +384,9 @@ Report commit: `625ec81` (`docs: record partial-read test verification`).
 
 ## Final Review Follow-Up: Preserve Newly Read Bytes
 
-Corrected the round-trip helper to append from `buffer.data() + received`, matching the destination offset used by the receive subspan. The helper limits each receive request to three bytes, forcing multiple reads for each payload without depending on TCP segmentation. Existing five-second receive timeouts and zero-byte EOF failure behavior remain.
+Corrected the round-trip helper to append from `buffer.data() + received`, matching the destination offset used by the
+receive subspan. The helper limits each receive request to three bytes, forcing multiple reads for each payload without
+depending on TCP segmentation. Existing five-second receive timeouts and zero-byte EOF failure behavior remain.
 
 ### Red Phase
 
@@ -413,7 +447,9 @@ Report commit: `2aa8e77` (`docs: record socket byte accumulation fix`).
 
 ## Final Review Follow-Up: Suppress Windows min/max Macros
 
-Defined `NOMINMAX` under `_WIN32`, guarded with `#ifndef`, before including any Windows SDK headers in `src/platform/socket.cpp`. This prevents SDK `min`/`max` macros from interfering with `std::min` and `std::numeric_limits<DWORD>::max()`.
+Defined `NOMINMAX` under `_WIN32`, guarded with `#ifndef`, before including any Windows SDK headers in
+`src/platform/socket.cpp`. This prevents SDK `min`/`max` macros from interfering with `std::min` and
+`std::numeric_limits<DWORD>::max()`.
 
 ### Windows Compile Check
 
@@ -427,7 +463,8 @@ It could not compile because this host does not have the Windows C++ standard li
 src/platform/socket.hpp(3,10): fatal error: 'chrono' file not found
 ```
 
-Therefore the Windows branch remains uncompiled locally; `NOMINMAX` is present before the Windows headers by source inspection.
+Therefore the Windows branch remains uncompiled locally; `NOMINMAX` is present before the Windows headers by source
+inspection.
 
 ### Local Verification
 
@@ -478,7 +515,11 @@ Report commit: `f8e0dba` (`docs: record Windows macro review`).
 
 ## Follow-Up Verification: Loopback Shutdown Flake
 
-A post-commit full-suite run intermittently failed in the loopback test at explicit `shutdown(client)` with `Socket is not connected`, after both payload exchanges had completed. Repeating only the socket test with `ctest --test-dir build -R socket --repeat until-fail:10 --output-on-failure` reproduced it on iteration 9. The test already explicitly closed both sockets and the listener after shutdown, so removed the redundant shutdown calls and left cleanup to `Socket::close()`/RAII.
+A post-commit full-suite run intermittently failed in the loopback test at explicit `shutdown(client)` with
+`Socket is not connected`, after both payload exchanges had completed. Repeating only the socket test with
+`ctest --test-dir build -R socket --repeat until-fail:10 --output-on-failure` reproduced it on iteration 9. The test
+already explicitly closed both sockets and the listener after shutdown, so removed the redundant shutdown calls and left
+cleanup to `Socket::close()`/RAII.
 
 After the adjustment, ran:
 
@@ -510,4 +551,5 @@ Total Test time (real) =   0.08 sec
 `git diff --check` emitted no output and exited 0.
 
 Test commit: `be2b989` (`test: avoid flaky loopback shutdown`).
-Report commits: `a9452cf` (`docs: record loopback shutdown verification`), `ee91a38` (`docs: record shutdown report hash`).
+Report commits: `a9452cf` (`docs: record loopback shutdown verification`), `ee91a38`
+(`docs: record shutdown report hash`).
