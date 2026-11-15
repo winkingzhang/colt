@@ -320,12 +320,14 @@ namespace colt::detail::platform {
 #ifdef _WIN32
         const auto count = std::min<std::chrono::milliseconds::rep>(
             timeout.count(), std::numeric_limits<DWORD>::max());
+        // ReSharper disable once CppInitializedValueIsAlwaysRewritten
         const DWORD value = static_cast<DWORD>(count);
         if (::setsockopt(native(socket.handle_), SOL_SOCKET, SO_RCVTIMEO,
                          reinterpret_cast<const char *>(&value), sizeof(value)) == SOCKET_ERROR) {
             throw_socket_error("setsockopt(SO_RCVTIMEO)");
         }
 #else
+        // ReSharper disable once CppInitializedValueIsAlwaysRewritten
         timeval value{};
         value.tv_sec = static_cast<decltype(value.tv_sec)>(timeout.count() / 1000);
         value.tv_usec = static_cast<decltype(value.tv_usec)>((timeout.count() % 1000) * 1000);

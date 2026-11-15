@@ -29,11 +29,11 @@ namespace colt::detail {
             return punctuation.find(static_cast<char>(ch)) != std::string_view::npos;
         }
 
-        inline bool is_valid_field_value(std::string_view value) {
-            for (const unsigned char ch: value) {
-                if ((ch < 0x20 && ch != '\t') || ch == 0x7f) return false;
-            }
-            return true;
+        inline bool is_valid_field_value(const std::string_view value) {
+            const auto invalid_it = std::ranges::find_if(value, [](const unsigned char ch) {
+                return (ch < 0x20 && ch != '\t') || ch == 0x7f;
+            });
+            return invalid_it == value.end();
         }
 
         inline std::string_view trim_ows(std::string_view value) {
@@ -148,40 +148,38 @@ namespace colt::detail {
                 }
                 const auto tail = literal.substr(dot + 1);
                 if (tail.empty()) return false;
-                for (const unsigned char ch: tail) {
+
+                const auto valid_ip4_it = std::ranges::find_if(tail, [](const unsigned char ch) {
                     const bool unreserved =
                             (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
                             (ch >= '0' && ch <= '9') || ch == '-' || ch == '.' || ch == '_' ||
                             ch == '~';
                     constexpr std::string_view sub_delimiters = "!$&'()*+,;=";
-                    if (!unreserved && sub_delimiters.find(static_cast<char>(ch)) ==
-                        std::string_view::npos &&
-                        ch != ':')
-                        return false;
-                }
-                return true;
+                    return !unreserved &&
+                           sub_delimiters.find(static_cast<char>(ch)) == std::string_view::npos &&
+                           ch != ':';
+                });
+                return valid_ip4_it == tail.end();
             }
             return is_ipv6(literal);
         }
 
-        inline bool is_valid_host_authority(std::string_view authority) {
+        inline bool is_valid_host_authority(const std::string_view authority) {
             if (authority.empty()) return false;
-            std::string_view host;
             std::string_view port;
             if (authority.front() == '[') {
                 const auto close = authority.find(']');
                 if (close == std::string_view::npos ||
                     !is_ip_literal(authority.substr(1, close - 1)))
                     return false;
-                host = authority.substr(1, close - 1);
-                const auto suffix = authority.substr(close + 1);
-                if (!suffix.empty()) {
+                // host = authority.substr(1, close - 1);
+                if (const auto suffix = authority.substr(close + 1); !suffix.empty()) {
                     if (suffix.front() != ':') return false;
                     port = suffix.substr(1);
                 }
             } else {
-                const auto colon = authority.find(':');
-                if (colon != std::string_view::npos) {
+                std::string_view host;
+                if (const auto colon = authority.find(':'); colon != std::string_view::npos) {
                     if (authority.find(':', colon + 1) != std::string_view::npos) return false;
                     host = authority.substr(0, colon);
                     port = authority.substr(colon + 1);
@@ -194,7 +192,7 @@ namespace colt::detail {
                 unsigned value = 0;
                 for (const char ch: port) {
                     if (ch < '0' || ch > '9') return false;
-                    const unsigned digit = static_cast<unsigned>(ch - '0');
+                    const auto digit = static_cast<unsigned>(ch - '0');
                     if (value > (65535 - digit) / 10) return false;
                     value = value * 10 + digit;
                 }
@@ -222,16 +220,16 @@ namespace colt::detail {
             return true;
         }
 
-        inline bool is_valid_request_target(std::string_view target) {
-            for (const unsigned char ch: target) {
-                if (ch <= 0x20 || ch >= 0x7f) return false;
+        inline bool is_valid_request_target(const std::string_view target) {
+            const auto invalid_it = std::ranges::find_if(target, [](const unsigned char ch) {
+                if (ch <= 0x20 || ch >= 0x7f) return true;
                 if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
                     (ch >= '0' && ch <= '9'))
-                    continue;
+                    return false;
                 constexpr std::string_view allowed = "/?%:@!$&'()*+,;=-._~";
-                if (allowed.find(static_cast<char>(ch)) == std::string_view::npos) return false;
-            }
-            return true;
+                return allowed.find(static_cast<char>(ch)) == std::string_view::npos;
+            });
+            return invalid_it == target.end();
         }
 
         inline bool parse_query(std::string_view query,
@@ -254,11 +252,16 @@ namespace colt::detail {
             return true;
         }
 
-        inline ParseResult error(ParseStatus status) {
-            return {status, {}, 0, true};
+        inline ParseResult error(const ParseStatus status) {
+            return {
+                .status = status,
+                .request = {},
+                .bytes_consumed = 0,
+                .close_connection = true
+            };
         }
 
-        inline std::string_view reason_phrase(int status) {
+        inline std::string_view reason_phrase(const int status) {
             switch (status) {
                 case 200: return "OK";
                 case 201: return "Created";
@@ -281,7 +284,7 @@ namespace colt::detail {
         }
     } // namespace http_parser_detail
 
-    inline ParseResult parse_request(std::string_view input, const HttpLimits &limits = {}) {
+    inline ParseResult parse_request(const std::string_view input, const HttpLimits &limits = {}) {
         using namespace http_parser_detail;
 
         const auto line_end = input.find("\r\n");
@@ -302,7 +305,8 @@ namespace colt::detail {
             }
             return {};
         }
-        if (line_end > limits.request_line_bytes) return error(ParseStatus::payload_too_large);
+        if (line_end > limits.request_line_bytes)
+            return error(ParseStatus::payload_too_large);
 
         const auto request_line = input.substr(0, line_end);
         const auto first_space = request_line.find(' ');
@@ -316,7 +320,8 @@ namespace colt::detail {
             return error(ParseStatus::bad_request);
         }
         for (const unsigned char ch: request_line.substr(0, first_space)) {
-            if (!is_token_char(ch)) return error(ParseStatus::bad_request);
+            if (!is_token_char(ch))
+                return error(ParseStatus::bad_request);
         }
 
         Request request;
@@ -329,7 +334,8 @@ namespace colt::detail {
         const auto question = request.target.find('?');
         request.path = request.target.substr(0, question);
         std::string decoded_path;
-        if (!decode_component(request.path, decoded_path)) return error(ParseStatus::bad_request);
+        if (!decode_component(request.path, decoded_path))
+            return error(ParseStatus::bad_request);
         if (question != std::string::npos &&
             !parse_query(std::string_view(request.target).substr(question + 1), request.query_params)) {
             return error(ParseStatus::bad_request);
@@ -377,11 +383,13 @@ namespace colt::detail {
                 return error(ParseStatus::bad_request);
             }
             for (const unsigned char ch: line.substr(0, colon)) {
-                if (!is_token_char(ch)) return error(ParseStatus::bad_request);
+                if (!is_token_char(ch))
+                    return error(ParseStatus::bad_request);
             }
             const auto value = trim_ows(line.substr(colon + 1));
             for (const unsigned char ch: value) {
-                if ((ch < 0x20 && ch != '\t') || ch == 0x7f) return error(ParseStatus::bad_request);
+                if ((ch < 0x20 && ch != '\t') || ch == 0x7f)
+                    return error(ParseStatus::bad_request);
             }
             const std::string name(line.substr(0, colon));
             if (name.size() == 4 && std::equal(name.begin(), name.end(), "host",
@@ -398,7 +406,7 @@ namespace colt::detail {
                                                     return ascii_lower(static_cast<char>(a)) == b;
                                                 })) {
                 std::string lower_value(value);
-                std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(), ascii_lower);
+                std::ranges::transform(lower_value, lower_value.begin(), ascii_lower);
                 std::size_t start = 0;
                 while (start < lower_value.size()) {
                     const auto comma = lower_value.find(',', start);
@@ -409,12 +417,14 @@ namespace colt::detail {
                     start = comma + 1;
                 }
             }
-            if (name.size() == 14 && std::equal(name.begin(), name.end(), "content-length",
-                                                [](unsigned char a, unsigned char b) {
-                                                    return ascii_lower(static_cast<char>(a)) == b;
-                                                })) {
+            if (name.size() == 14 &&
+                std::equal(name.begin(), name.end(), "content-length",
+                           [](const unsigned char a, const unsigned char b) {
+                               return ascii_lower(static_cast<char>(a)) == b;
+                           })) {
                 ++content_length_count;
-                if (content_length_count > 1 || value.empty()) return error(ParseStatus::bad_request);
+                if (content_length_count > 1 || value.empty())
+                    return error(ParseStatus::bad_request);
                 const auto [end, ec] = std::from_chars(value.data(), value.data() + value.size(), content_length);
                 if (ec == std::errc::result_out_of_range) {
                     return error(ParseStatus::payload_too_large);
@@ -422,22 +432,32 @@ namespace colt::detail {
                 if (ec != std::errc{} || end != value.data() + value.size()) {
                     return error(ParseStatus::bad_request);
                 }
-            } else if (name.size() == 17 && std::equal(name.begin(), name.end(), "transfer-encoding",
-                                                       [](unsigned char a, unsigned char b) {
-                                                           return ascii_lower(static_cast<char>(a)) == b;
-                                                       })) {
+            } else if (name.size() == 17 &&
+                       std::equal(name.begin(), name.end(), "transfer-encoding",
+                                  [](const unsigned char a, const unsigned char b) {
+                                      return ascii_lower(static_cast<char>(a)) == b;
+                                  })) {
                 has_transfer_encoding = true;
             }
             request.headers.add(name, std::string(value));
             position = header_end + 2;
         }
 
-        if (host_count != 1) return error(ParseStatus::bad_request);
-        if (has_transfer_encoding) return error(ParseStatus::bad_request);
-        if (content_length > limits.body_bytes) return error(ParseStatus::payload_too_large);
-        if (input.size() - position < content_length) return {};
+        if (host_count != 1)
+            return error(ParseStatus::bad_request);
+        if (has_transfer_encoding)
+            return error(ParseStatus::bad_request);
+        if (content_length > limits.body_bytes)
+            return error(ParseStatus::payload_too_large);
+        if (input.size() - position < content_length)
+            return {};
         request.body.assign(input.substr(position, content_length));
-        return {ParseStatus::complete, std::move(request), position + content_length, close_connection};
+        return {
+            .status = ParseStatus::complete,
+            .request = std::move(request),
+            .bytes_consumed = position + content_length,
+            .close_connection = close_connection
+        };
     }
 
     inline std::string serialize_response(const Response &response, bool keep_alive) {
@@ -449,41 +469,45 @@ namespace colt::detail {
                                     response.status == 204 || response.status == 205 ||
                                     response.status == 304;
         for (const auto &[name, value]: response.headers) {
-            if (name.empty() || !std::all_of(name.begin(), name.end(), [](unsigned char ch) {
+            if (name.empty() || !std::ranges::all_of(name, [](const unsigned char ch) {
                     return is_token_char(ch);
                 }) ||
                 !is_valid_field_value(value)) {
                 throw std::invalid_argument("invalid response header");
             }
-            if (name.size() == 17 && std::equal(name.begin(), name.end(), "transfer-encoding",
-                                                [](unsigned char a, unsigned char b) {
-                                                    return ascii_lower(static_cast<char>(a)) == b;
-                                                })) {
+            if (name.size() == 17 &&
+                std::equal(name.begin(), name.end(), "transfer-encoding",
+                           [](const unsigned char a, const unsigned char b) {
+                               return ascii_lower(static_cast<char>(a)) == b;
+                           })) {
                 throw std::invalid_argument("Transfer-Encoding is not supported");
             }
         }
         std::string result = "HTTP/1.1 " + std::to_string(response.status) + " " +
                              std::string(reason_phrase(response.status)) + "\r\n";
         for (const auto &[name, value]: response.headers) {
-            if (name.size() == 14 && std::equal(name.begin(), name.end(), "content-length",
-                                                [](unsigned char a, unsigned char b) {
-                                                    return ascii_lower(static_cast<char>(a)) == b;
-                                                }))
+            if (name.size() == 14 &&
+                std::equal(name.begin(), name.end(), "content-length",
+                           [](const unsigned char a, const unsigned char b) {
+                               return ascii_lower(static_cast<char>(a)) == b;
+                           }))
                 continue;
-            if (name.size() == 10 && std::equal(name.begin(), name.end(), "connection",
-                                                [](unsigned char a, unsigned char b) {
-                                                    return ascii_lower(static_cast<char>(a)) == b;
-                                                }))
+            if (name.size() == 10 &&
+                std::equal(name.begin(), name.end(), "connection",
+                           [](const unsigned char a, const unsigned char b) {
+                               return ascii_lower(static_cast<char>(a)) == b;
+                           }))
                 continue;
-            result += name + ": " + value + "\r\n";
+            result.append(name).append(": ").append(value).append("\r\n");
         }
         if (!body_forbidden || response.status == 205) {
             const auto content_length = response.status == 205 ? 0 : response.body.size();
-            result += "Content-Length: " + std::to_string(content_length) + "\r\n";
+            result.append("Content-Length: ").append(std::to_string(content_length)).append("\r\n");
         }
         result += keep_alive ? "Connection: keep-alive\r\n" : "Connection: close\r\n";
         result += "\r\n";
-        if (!body_forbidden) result += response.body;
+        if (!body_forbidden)
+            result += response.body;
         return result;
     }
 } // namespace colt::detail

@@ -18,7 +18,7 @@ namespace colt {
 
         void set(std::string name, std::string value) {
             const auto key = normalized(name);
-            auto first = std::find_if(fields_.begin(), fields_.end(), [&](const auto &field) {
+            const auto first = std::ranges::find_if(fields_, [&](const auto &field) {
                 return normalized(field.first) == key;
             });
             if (first == fields_.end()) {
@@ -38,7 +38,7 @@ namespace colt {
 
         [[nodiscard]] std::optional<std::string_view> get(std::string_view name) const {
             const auto key = normalized(name);
-            const auto found = std::find_if(fields_.begin(), fields_.end(), [&](const auto &field) {
+            const auto found = std::ranges::find_if(fields_, [&](const auto &field) {
                 return normalized(field.first) == key;
             });
             if (found == fields_.end()) return std::nullopt;
@@ -52,7 +52,7 @@ namespace colt {
     private:
         static std::string normalized(std::string_view value) {
             std::string result(value);
-            std::transform(result.begin(), result.end(), result.begin(), [](char ch) {
+            std::ranges::transform(result, result.begin(), [](const char ch) {
                 if (ch >= 'A' && ch <= 'Z') return static_cast<char>(ch + ('a' - 'A'));
                 return ch;
             });
@@ -77,7 +77,7 @@ namespace colt {
         Headers headers;
         std::string body;
 
-        static Response text(std::string body, int status = 200) {
+        static Response text(std::string body, const int status = 200) {
             Response response;
             response.status = status;
             response.body = std::move(body);

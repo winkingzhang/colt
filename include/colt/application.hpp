@@ -44,12 +44,12 @@ namespace colt {
 
         template<class T, class Factory>
         void add_singleton(Factory &&factory) {
-            registry_.template add_singleton<T>(std::forward<Factory>(factory));
+            registry_.add_singleton<T>(std::forward<Factory>(factory));
         }
 
         template<class T, class Factory>
         void add_request(Factory &&factory) {
-            registry_.template add_request<T>(std::forward<Factory>(factory));
+            registry_.add_request<T>(std::forward<Factory>(factory));
         }
 
         void get(std::string pattern, Handler handler) {
@@ -136,7 +136,7 @@ namespace colt {
                         called = true;
                         return run_middleware(index + 1);
                     };
-                    auto response = middleware_[index](request, context, std::move(next));
+                    auto response = middleware_[index](request, context, next);
                     if (repeated) return Response::text("Internal Server Error", 500);
                     return response;
                 };
@@ -151,8 +151,8 @@ namespace colt {
             }
         }
 
-        void listen(std::string address = "127.0.0.1", std::uint16_t port = 8080,
-                    ServerSettings settings = {}) {
+        void listen(const std::string& address = "127.0.0.1", std::uint16_t port = 8080,
+                    const ServerSettings &settings = {}) {
             std::lock_guard lock(lifecycle_mutex_);
             if (listener_) throw std::logic_error("application is already listening");
 

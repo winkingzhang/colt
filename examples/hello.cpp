@@ -27,9 +27,9 @@ int main() {
     });
 
     app.get("/hello/:name", [](const colt::Request &request, colt::RequestContext &context) {
-        const auto &greeter = context.get<Greeter>();
+        const auto &[prefix] = context.get<Greeter>();
         (void) context.get<RequestMarker>();
-        return colt::Response::text(greeter.prefix + ", " + request.path_params.at("name") + "!");
+        return colt::Response::text(prefix + ", " + request.path_params.at("name") + "!");
     });
 
     try {
