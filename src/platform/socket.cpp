@@ -164,7 +164,7 @@ namespace colt::detail::platform {
         }
     } // namespace
 
-    Socket::Socket(std::uintptr_t handle) noexcept : handle_(handle) {
+    Socket::Socket(const std::uintptr_t handle) noexcept : handle_(handle) {
     }
 
     Socket::~Socket() { close(); }
@@ -197,10 +197,11 @@ namespace colt::detail::platform {
 #endif
     }
 
-    Socket listen_tcp(std::string_view address, std::uint16_t port, int backlog) {
+    Socket listen_tcp(const std::string_view address, const std::uint16_t port, const int backlog) {
         initialize_sockets();
-        if (backlog < 0) throw std::invalid_argument("backlog must not be negative");
-        auto addresses = resolve(address, port, 0);
+        if (backlog < 0)
+            throw std::invalid_argument("backlog must not be negative");
+        const auto addresses = resolve(address, port, 0);
         std::error_code last_error;
 
         for (auto *entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
@@ -218,7 +219,7 @@ namespace colt::detail::platform {
 #endif
             try {
                 configure_socket(handle);
-                const int enabled = 1;
+                constexpr int enabled = 1;
                 if (::setsockopt(handle, SOL_SOCKET, SO_REUSEADDR,
                                  reinterpret_cast<const char *>(&enabled), sizeof(enabled)) < 0) {
                     throw_socket_error("setsockopt(SO_REUSEADDR)");
@@ -240,7 +241,7 @@ namespace colt::detail::platform {
         throw std::system_error(std::make_error_code(std::errc::address_not_available), "listen");
     }
 
-    Socket accept(Socket &listener) {
+    Socket accept(const Socket &listener) {
         ensure_valid(listener);
         for (;;) {
             const auto handle = ::accept(native(listener.handle_), nullptr, nullptr);
@@ -270,7 +271,7 @@ namespace colt::detail::platform {
         }
     }
 
-    std::size_t receive(Socket &socket, std::span<char> buffer) {
+    std::size_t receive(const Socket &socket, std::span<char> buffer) {
         ensure_valid(socket);
         if (buffer.empty()) return 0;
         const auto size = std::min(buffer.size(), static_cast<std::size_t>(INT_MAX));
@@ -287,7 +288,7 @@ namespace colt::detail::platform {
         }
     }
 
-    void send_all(Socket &socket, std::span<const char> data) {
+    void send_all(const Socket &socket, std::span<const char> data) {
         ensure_valid(socket);
         std::size_t sent = 0;
         while (sent < data.size()) {
@@ -314,7 +315,7 @@ namespace colt::detail::platform {
         }
     }
 
-    void set_receive_timeout(Socket &socket, std::chrono::milliseconds timeout) {
+    void set_receive_timeout(const Socket &socket, std::chrono::milliseconds timeout) {
         ensure_valid(socket);
         if (timeout.count() < 0) throw std::invalid_argument("timeout must not be negative");
 #ifdef _WIN32
@@ -337,7 +338,7 @@ namespace colt::detail::platform {
 #endif
     }
 
-    bool has_pending_connection(Socket &listener) {
+    bool has_pending_connection(const Socket &listener) {
         ensure_valid(listener);
 #ifdef _WIN32
         fd_set readable;
@@ -358,7 +359,7 @@ namespace colt::detail::platform {
 #endif
     }
 
-    void shutdown(Socket &socket) {
+    void shutdown(const Socket &socket) {
         ensure_valid(socket);
 #ifdef _WIN32
         if (::shutdown(native(socket.handle_), SD_BOTH) == SOCKET_ERROR) throw_socket_error("shutdown");

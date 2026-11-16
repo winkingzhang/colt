@@ -146,6 +146,8 @@ namespace colt {
                     return Response::text("Internal Server Error", 500);
                 }
                 return response;
+            } catch (const JsonBodyError &) {
+                return Response::text("Bad Request", 400);
             } catch (...) {
                 return Response::text("Internal Server Error", 500);
             }

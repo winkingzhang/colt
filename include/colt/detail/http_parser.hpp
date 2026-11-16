@@ -21,7 +21,7 @@ namespace colt::detail {
     };
 
     namespace http_parser_detail {
-        inline bool is_token_char(unsigned char ch) {
+        inline bool is_token_char(const unsigned char ch) {
             if ((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') ||
                 (ch >= 'a' && ch <= 'z'))
                 return true;
@@ -42,19 +42,19 @@ namespace colt::detail {
             return value;
         }
 
-        inline char ascii_lower(char ch) {
+        inline char ascii_lower(const char ch) {
             if (ch >= 'A' && ch <= 'Z') return static_cast<char>(ch + ('a' - 'A'));
             return ch;
         }
 
-        inline int hex_value(char ch) {
+        inline int hex_value(const char ch) {
             if (ch >= '0' && ch <= '9') return ch - '0';
             if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
             if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
             return -1;
         }
 
-        inline bool is_reg_name(std::string_view host) {
+        inline bool is_reg_name(const std::string_view host) {
             if (host.empty()) return false;
             for (std::size_t i = 0; i < host.size(); ++i) {
                 const char ch = host[i];
@@ -138,7 +138,7 @@ namespace colt::detail {
             return groups < 8;
         }
 
-        inline bool is_ip_literal(std::string_view literal) {
+        inline bool is_ip_literal(const std::string_view literal) {
             if (literal.empty()) return false;
             if (literal.front() == 'v' || literal.front() == 'V') {
                 const auto dot = literal.find('.');
@@ -202,7 +202,7 @@ namespace colt::detail {
             return true;
         }
 
-        inline bool decode_component(std::string_view input, std::string &output) {
+        inline bool decode_component(const std::string_view input, std::string &output) {
             for (std::size_t i = 0; i < input.size(); ++i) {
                 if (input[i] == '+') {
                     output.push_back(' ');
@@ -460,7 +460,7 @@ namespace colt::detail {
         };
     }
 
-    inline std::string serialize_response(const Response &response, bool keep_alive) {
+    inline std::string serialize_response(const Response &response, const bool keep_alive) {
         using namespace http_parser_detail;
         if (response.status < 100 || response.status > 599) {
             throw std::invalid_argument("invalid HTTP response status");

@@ -25,6 +25,7 @@ if (COLT_BUILD_TESTS)
             tests/build_test.cpp
             tests/http_parser_test.cpp
             tests/http_serializer_test.cpp
+            tests/json_test.cpp
             tests/context_test.cpp
             tests/routing_test.cpp
             tests/middleware_test.cpp
@@ -43,6 +44,7 @@ if (COLT_BUILD_TESTS)
     add_test(NAME socket COMMAND colt_tests socket)
     add_test(NAME http_parser COMMAND colt_tests parser)
     add_test(NAME http_serializer COMMAND colt_tests serializer)
+    add_test(NAME json COMMAND colt_tests json)
     add_test(NAME context COMMAND colt_tests context)
     add_test(NAME routing COMMAND colt_tests routing)
     add_test(NAME middleware COMMAND colt_tests middleware)

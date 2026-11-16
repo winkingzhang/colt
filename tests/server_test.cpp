@@ -66,6 +66,36 @@ namespace {
     }
 } // namespace
 
+TEST_CASE("server json echoes bodies and preserves existing connection policies") {
+    colt::Application app;
+    app.post("/json", [](const colt::Request &request, colt::RequestContext &) {
+        return colt::Response::json(request.json(), 201);
+    });
+    app.listen("127.0.0.1", 0);
+
+    auto socket = connect_to(app);
+    std::string buffered;
+    send_request(socket, "POST /json HTTP/1.1\r\nHost: localhost\r\n"
+                         "Content-Type: application/json\r\nContent-Length: 1\r\n\r\n[");
+    REQUIRE(read_response(socket, buffered).starts_with("HTTP/1.1 400 Bad Request\r\n"));
+    REQUIRE(wait_for_close(socket));
+    socket = connect_to(app);
+    const std::string body = "{\"message\":\"caf\xc3\xa9\"}";
+    send_request(socket, "POST /json HTTP/1.1\r\nHost: localhost\r\n"
+                         "Content-Type: application/json\r\nContent-Length: " +
+                         std::to_string(body.size()) + "\r\n\r\n" + body);
+    const auto response = read_response(socket, buffered);
+    REQUIRE(response.starts_with("HTTP/1.1 201 Created\r\n"));
+    REQUIRE(response.find("Content-Type: application/json\r\n") != std::string::npos);
+    REQUIRE(response.find("Connection: keep-alive\r\n") != std::string::npos);
+    REQUIRE(response.ends_with(body));
+    send_request(socket, "POST /json HTTP/1.1\r\nHost: localhost\r\n"
+                         "Connection: close\r\nContent-Length: 4\r\n\r\nnull");
+    REQUIRE(read_response(socket, buffered).ends_with("\r\n\r\nnull"));
+    REQUIRE(wait_for_close(socket));
+    app.stop();
+}
+
 TEST_CASE(
 
 

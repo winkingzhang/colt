@@ -32,6 +32,10 @@ int main() {
         return colt::Response::text(prefix + ", " + request.path_params.at("name") + "!");
     });
 
+    app.post("/echo", [](const colt::Request &request, colt::RequestContext &) {
+        return colt::Response::json(request.json());
+    });
+
     try {
         app.listen("127.0.0.1", 8080);
         std::cout << "Listening on http://127.0.0.1:8080/hello/Colt\n"

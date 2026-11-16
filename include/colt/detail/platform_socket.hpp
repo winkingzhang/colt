@@ -32,17 +32,17 @@ namespace colt::detail::platform {
 
         friend Socket listen_tcp(std::string_view, std::uint16_t, int);
 
-        friend Socket accept(Socket &);
+        friend Socket accept(const Socket &);
 
-        friend bool has_pending_connection(Socket &);
+        friend bool has_pending_connection(const Socket &);
 
-        friend std::size_t receive(Socket &, std::span<char>);
+        friend std::size_t receive(const Socket &, std::span<char>);
 
-        friend void send_all(Socket &, std::span<const char>);
+        friend void send_all(const Socket &, std::span<const char>);
 
-        friend void set_receive_timeout(Socket &, std::chrono::milliseconds);
+        friend void set_receive_timeout(const Socket &, std::chrono::milliseconds);
 
-        friend void shutdown(Socket &);
+        friend void shutdown(const Socket &);
 
         friend Socket connect_tcp(std::string_view, std::uint16_t);
 
@@ -55,17 +55,17 @@ namespace colt::detail::platform {
 
     Socket listen_tcp(std::string_view address, std::uint16_t port, int backlog);
 
-    Socket accept(Socket &listener);
+    Socket accept(const Socket &listener);
 
-    bool has_pending_connection(Socket &listener);
+    bool has_pending_connection(const Socket &listener);
 
-    std::size_t receive(Socket &socket, std::span<char> buffer);
+    std::size_t receive(const Socket &socket, std::span<char> buffer);
 
-    void send_all(Socket &socket, std::span<const char> data);
+    void send_all(const Socket &socket, std::span<const char> data);
 
-    void set_receive_timeout(Socket &socket, std::chrono::milliseconds timeout);
+    void set_receive_timeout(const Socket &socket, std::chrono::milliseconds timeout);
 
-    void shutdown(Socket &socket);
+    void shutdown(const Socket &socket);
 
     Socket connect_tcp(std::string_view address, std::uint16_t port);
 
