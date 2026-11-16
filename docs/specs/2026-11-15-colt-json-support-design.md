@@ -23,7 +23,7 @@ framework constraints and protocol exclusions remain unchanged.
 
 ## Public Value API
 
-`../../../include/colt/json.hpp` defines `colt::Json` and `colt::JsonParseError`.
+`../../include/colt/json.hpp` defines `colt::Json` and `colt::JsonParseError`.
 `include/colt/http.hpp` includes this header, making JSON available through
 `<colt/application.hpp>` as well.
 
@@ -270,15 +270,15 @@ keep-alive unless the request or response asks to close.
 
 | File | Change |
 |------|--------|
-| `../../../include/colt/json.hpp` | Owning JSON value, parser, serializer, parse error, codec concept, and built-in adapter |
-| `../../../include/colt/http.hpp` | Body error type, default helpers, and explicit codec helper overloads |
-| `../../../include/colt/application.hpp` | Request JSON parse failures become HTTP 400 |
-| `../../../tests/json_test.cpp` | New JSON and dispatch coverage |
-| `../../../tests/server_test.cpp` | Loopback JSON responses and connection-policy coverage |
-| `../../../tests/consumer_smoke.cpp` | JSON usage through the public consumer target |
-| `../../../CMakeLists.txt` | Include JSON tests and register the `json` CTest selector |
-| `../../../examples/hello.cpp` | Add `POST /echo` JSON route |
-| `../../../README.md` | Document JSON API, limits, failure behavior, and example |
+| `../../include/colt/json.hpp` | Owning JSON value, parser, serializer, parse error, codec concept, and built-in adapter |
+| `../../include/colt/http.hpp` | Body error type, default helpers, and explicit codec helper overloads |
+| `../../include/colt/application.hpp` | Request JSON parse failures become HTTP 400 |
+| `../../tests/json_test.cpp` | New JSON and dispatch coverage |
+| `../../tests/server_test.cpp` | Loopback JSON responses and connection-policy coverage |
+| `../../tests/consumer_smoke.cpp` | JSON usage through the public consumer target |
+| `../../CMakeLists.txt` | Include JSON tests and register the `json` CTest selector |
+| `../../examples/hello.cpp` | Add `POST /echo` JSON route |
+| `../../README.md` | Document JSON API, limits, failure behavior, and example |
 
 No new third-party package, platform-specific JSON source, or consumer link
 requirement is introduced.
