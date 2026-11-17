@@ -38,8 +38,8 @@ namespace colt::detail::platform {
         const std::error_category &addrinfo_category() noexcept {
             class Category final : public std::error_category {
             public:
-                const char * name() const noexcept override { return "getaddrinfo"; }
-                std::string message(int error) const override { return gai_strerrorA(error); }
+                [[nodiscard]] const char * name() const noexcept override { return "getaddrinfo"; }
+                [[nodiscard]] std::string message(const int error) const override { return gai_strerrorA(error); }
             };
             static const Category category;
             return category;
@@ -49,15 +49,15 @@ namespace colt::detail::platform {
             return {WSAGetLastError(), std::system_category()};
         }
 
-        NativeSocket native(std::uintptr_t handle) {
-            return static_cast<NativeSocket>(handle);
+        NativeSocket native(const std::uintptr_t handle) {
+            return handle;
         }
 
-        [[noreturn]] void throw_socket_error(const char *operation, int error = WSAGetLastError()) {
+        [[noreturn]] void throw_socket_error(const char *operation, const int error = WSAGetLastError()) {
             throw std::system_error(std::error_code(error, std::system_category()), operation);
         }
 
-        void close_native(NativeSocket socket) noexcept {
+        void close_native(const NativeSocket socket) noexcept {
             closesocket(socket);
         }
 
@@ -65,14 +65,14 @@ namespace colt::detail::platform {
         public:
             WinsockRuntime() {
                 WSADATA data{};
-                const int error = WSAStartup(MAKEWORD(2, 2), &data);
-                if (error != 0) throw_socket_error("WSAStartup", error);
+                if (const int error = WSAStartup(MAKEWORD(2, 2), &data); error != 0)
+                    throw_socket_error("WSAStartup", error);
             }
 
             ~WinsockRuntime() { WSACleanup(); }
         };
 
-        void configure_socket(NativeSocket socket) {
+        void configure_socket(const NativeSocket socket) {
             (void) socket;
         }
 #else
@@ -106,13 +106,14 @@ namespace colt::detail::platform {
         }
 
         void configure_socket(NativeSocket socket) {
+
 #ifdef SO_NOSIGPIPE
-            const int enabled = 1;
+        const int enabled = 1;
             if (::setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled)) < 0) {
                 throw_socket_error("setsockopt(SO_NOSIGPIPE)");
             }
 #else
-            (void) socket;
+        (void) socket;
 #endif
         }
 #endif
@@ -204,7 +205,7 @@ namespace colt::detail::platform {
         const auto addresses = resolve(address, port, 0);
         std::error_code last_error;
 
-        for (auto *entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
+        for (const auto *entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
             const auto handle = ::socket(entry->ai_family, entry->ai_socktype, entry->ai_protocol);
 #ifdef _WIN32
             if (handle == INVALID_SOCKET) {
@@ -253,7 +254,7 @@ namespace colt::detail::platform {
                     close_native(handle);
                     throw;
                 }
-                return Socket(static_cast<std::uintptr_t>(handle));
+                return Socket(handle);
             }
             throw_socket_error("accept");
 #else
@@ -278,7 +279,8 @@ namespace colt::detail::platform {
         for (;;) {
 #ifdef _WIN32
             const int result = ::recv(native(socket.handle_), buffer.data(), static_cast<int>(size), 0);
-            if (result != SOCKET_ERROR) return static_cast<std::size_t>(result);
+            if (result != SOCKET_ERROR)
+                return static_cast<std::size_t>(result);
             throw_socket_error("recv");
 #else
             const auto result = ::recv(native(socket.handle_), buffer.data(), size, 0);
@@ -295,7 +297,8 @@ namespace colt::detail::platform {
             const auto size = std::min(data.size() - sent, static_cast<std::size_t>(INT_MAX));
 #ifdef _WIN32
             const int result = ::send(native(socket.handle_), data.data() + sent, static_cast<int>(size), 0);
-            if (result == SOCKET_ERROR) throw_socket_error("send");
+            if (result == SOCKET_ERROR)
+                throw_socket_error("send");
 #else
 #ifdef MSG_NOSIGNAL
             constexpr int send_flags = MSG_NOSIGNAL;
@@ -317,12 +320,13 @@ namespace colt::detail::platform {
 
     void set_receive_timeout(const Socket &socket, std::chrono::milliseconds timeout) {
         ensure_valid(socket);
-        if (timeout.count() < 0) throw std::invalid_argument("timeout must not be negative");
+        if (timeout.count() < 0)
+            throw std::invalid_argument("timeout must not be negative");
 #ifdef _WIN32
         const auto count = std::min<std::chrono::milliseconds::rep>(
             timeout.count(), std::numeric_limits<DWORD>::max());
         // ReSharper disable once CppInitializedValueIsAlwaysRewritten
-        const DWORD value = static_cast<DWORD>(count);
+        const auto value = static_cast<DWORD>(count);
         if (::setsockopt(native(socket.handle_), SOL_SOCKET, SO_RCVTIMEO,
                          reinterpret_cast<const char *>(&value), sizeof(value)) == SOCKET_ERROR) {
             throw_socket_error("setsockopt(SO_RCVTIMEO)");
@@ -344,7 +348,7 @@ namespace colt::detail::platform {
         fd_set readable;
         FD_ZERO(&readable);
         FD_SET(native(listener.handle_), &readable);
-        timeval timeout{0, 0};
+        constexpr timeval timeout{.tv_sec = 0, .tv_usec = 0};
         const auto ready = ::select(0, &readable, nullptr, nullptr, &timeout);
         if (ready == SOCKET_ERROR) throw_socket_error("select");
         return ready > 0;
@@ -362,18 +366,20 @@ namespace colt::detail::platform {
     void shutdown(const Socket &socket) {
         ensure_valid(socket);
 #ifdef _WIN32
-        if (::shutdown(native(socket.handle_), SD_BOTH) == SOCKET_ERROR) throw_socket_error("shutdown");
+        if (::shutdown(native(socket.handle_), SD_BOTH) == SOCKET_ERROR)
+            throw_socket_error("shutdown");
 #else
-        if (::shutdown(native(socket.handle_), SHUT_RDWR) < 0) throw_socket_error("shutdown");
+        if (::shutdown(native(socket.handle_), SHUT_RDWR) < 0)
+            throw_socket_error("shutdown");
 #endif
     }
 
     Socket connect_tcp(std::string_view address, std::uint16_t port) {
         initialize_sockets();
-        auto addresses = resolve(address, port, 0);
+        const auto addresses = resolve(address, port, 0);
         std::error_code last_error;
 
-        for (auto *entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
+        for (const auto *entry = addresses.value; entry != nullptr; entry = entry->ai_next) {
             const auto handle = ::socket(entry->ai_family, entry->ai_socktype, entry->ai_protocol);
 #ifdef _WIN32
             if (handle == INVALID_SOCKET) {
@@ -400,7 +406,8 @@ namespace colt::detail::platform {
             }
             close_native(handle);
         }
-        if (last_error) throw std::system_error(last_error, "connect");
+        if (last_error)
+            throw std::system_error(last_error, "connect");
         throw std::system_error(std::make_error_code(std::errc::address_not_available), "connect");
     }
 
